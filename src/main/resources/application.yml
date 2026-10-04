@@ -7,6 +7,8 @@ server:
         same-site: lax
 
 spring:
+  profiles:
+    active: local
   application:
     name: ttt
   datasource:

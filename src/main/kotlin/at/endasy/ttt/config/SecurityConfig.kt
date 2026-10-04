@@ -22,6 +22,7 @@ class SecurityConfig(private val discordOAuth2UserService: DiscordOAuth2UserServ
             }
             .oauth2Login { oauth2: OAuth2LoginConfigurer<HttpSecurity> ->
                 oauth2.userInfoEndpoint { it.userService(discordOAuth2UserService) }
+                oauth2.defaultSuccessUrl("/api/auth/me", true)
             }
             .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
             .csrf { it.disable() }
