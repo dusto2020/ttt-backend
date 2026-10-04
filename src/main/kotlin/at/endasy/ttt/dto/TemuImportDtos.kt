@@ -9,6 +9,8 @@ data class TemuImportRequest(
     val goodsInfo: TemuGoodsInfo,
     @JsonProperty("short_link")
     val shortLink: String,
+    @JsonProperty("product_url")
+    val productUrl: String? = null, // <-- NEU
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

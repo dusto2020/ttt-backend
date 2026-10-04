@@ -1,0 +1,1 @@
+ALTER TABLE products ADD COLUMN temu_product_url TEXT;

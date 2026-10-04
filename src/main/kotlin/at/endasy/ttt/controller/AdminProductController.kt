@@ -151,6 +151,7 @@ class AdminProductController(
             cardmarketUrl = cmUrl,
             temuPrice = temuPrice,
             isActive = true,
+            temuProductUrl = body.productUrl,
         )
 
         return ResponseEntity.ok(created.toResponse())

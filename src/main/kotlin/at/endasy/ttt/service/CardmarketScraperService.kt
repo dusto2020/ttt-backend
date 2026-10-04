@@ -47,7 +47,11 @@ class CardmarketScraperService(
                 .replace(Regex("(?i)English|Deutsch|German|Japanese"), "")
                 .trim()
 
-            if (!cleanQuery.startsWith("Pokemon", ignoreCase = true) && !cleanQuery.startsWith("Pokémon", ignoreCase = true)) {
+            if (!cleanQuery.startsWith("Pokemon", ignoreCase = true) && !cleanQuery.startsWith(
+                    "Pokémon",
+                    ignoreCase = true
+                )
+            ) {
                 cleanQuery = "Pokemon $cleanQuery"
             }
 
@@ -83,7 +87,8 @@ class CardmarketScraperService(
                     val link = item.path("link").asText("")
                     if (link.contains("cardmarket.com/", ignoreCase = true) &&
                         link.contains("/Pokemon/Products/", ignoreCase = true) &&
-                        !link.contains("/Search", ignoreCase = true)) {
+                        !link.contains("/Search", ignoreCase = true)
+                    ) {
 
                         // Link immer auf /de/ biegen
                         val finalUrl = buildCardmarketUrlWithFilters(link, languageCode)
@@ -121,7 +126,8 @@ class CardmarketScraperService(
         // Sicherheitsprüfung gegen Cardmarket-Suchseiten
         if (cleanTitle.equals("Suchergebnisse", ignoreCase = true) ||
             cleanTitle.equals("Search Results", ignoreCase = true) ||
-            cleanTitle.isBlank()) {
+            cleanTitle.isBlank()
+        ) {
             return null
         }
 
@@ -266,6 +272,41 @@ class CardmarketScraperService(
             .replace(Regex("/(en|fr|es|it)/Pokemon/"), "/de/Pokemon/")
 
         return "$baseUrl?sellerCountry=1,7&language=$langId"
+    }
+
+    /**
+     * Zieht den Live-Preis direkt von der echten Temu-Produktseite (#goods_price)
+     */
+    fun fetchTemuPrice(productUrl: String): BigDecimal? {
+        if (productUrl.isBlank()) return null
+
+        return try {
+            logger.info("Scraping live Temu price from: {}", productUrl)
+
+            val html = fetchHtmlViaFlareSolverr(productUrl) ?: return null
+            val doc = Jsoup.parse(html)
+
+            // 1. Suche den Container mit der festen ID aus deinem Screenshot
+            val goodsPriceDiv = doc.selectFirst("#goods_price") ?: doc.selectFirst("[class*=\"goods_price\"]")
+
+            val rawText = if (goodsPriceDiv != null) {
+                // Erstes <span> enthält das vollständige "€275.09"
+                val span = goodsPriceDiv.selectFirst("span")
+                span?.text() ?: goodsPriceDiv.text()
+            } else {
+                // Fallback: Schema.org JSON-LD
+                doc.select("meta[property=\"og:price:amount\"]").attr("content")
+            }
+
+            val price = parseGermanPrice(rawText)
+            if (price != null) {
+                logger.info("Successfully scraped Temu live price: {} € for {}", price, productUrl)
+            }
+            price
+        } catch (ex: Exception) {
+            logger.warn("Failed to scrape Temu price from {}: {}", productUrl, ex.message)
+            null
+        }
     }
 
     companion object {

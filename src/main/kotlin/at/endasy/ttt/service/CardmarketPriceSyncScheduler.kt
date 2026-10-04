@@ -41,23 +41,47 @@ class CardmarketPriceSyncScheduler(
         val product = dsl.selectFrom(PRODUCTS).where(PRODUCTS.ID.eq(productId)).fetchOne() ?: return
         val targetUrl = url ?: product.cardmarketUrl ?: ""
 
-        val result = scraperService.fetchLowestPrice(targetUrl, product.name, product.languageCode) ?: return
+        // 1. Cardmarket abfragen (Preis, deutscher Titel & Deeplink)
+        val cmResult = scraperService.fetchLowestPrice(targetUrl, product.name, product.languageCode)
 
-        val price = result.price
-        val resolvedDeepLink = result.resolvedUrl
-        val germanTitle = result.title
+        // 2. Temu Live-Preis abfragen (über den echten Direktlink #goods_price)
+        val temuUrl = product.temuProductUrl
+        val newTemuPrice = if (!temuUrl.isNullOrBlank()) {
+            scraperService.fetchTemuPrice(temuUrl)
+        } else {
+            null
+        }
+
+        // Falls weder Cardmarket noch Temu Daten liefern konnten, breche ab
+        if (cmResult == null && newTemuPrice == null) {
+            logger.warn("Weder Cardmarket noch Temu konnten für Produkt '{}' aktualisiert werden.", product.name)
+            return
+        }
 
         var updateQuery = dsl.update(PRODUCTS)
-            .set(PRODUCTS.CARDMARKET_UPDATED_AT, java.time.OffsetDateTime.ofInstant(Instant.now(), java.time.ZoneOffset.UTC))
+            .set(PRODUCTS.UPDATED_AT, java.time.OffsetDateTime.ofInstant(Instant.now(), java.time.ZoneOffset.UTC))
 
-        if (price != null) {
-            updateQuery = updateQuery.set(PRODUCTS.CARDMARKET_LOWEST_PRICE, price)
+        // Cardmarket-Felder setzen
+        if (cmResult != null) {
+            updateQuery = updateQuery.set(
+                PRODUCTS.CARDMARKET_UPDATED_AT,
+                java.time.OffsetDateTime.ofInstant(Instant.now(), java.time.ZoneOffset.UTC)
+            )
+            if (cmResult.price != null) {
+                updateQuery = updateQuery.set(PRODUCTS.CARDMARKET_LOWEST_PRICE, cmResult.price)
+            }
+            if (cmResult.resolvedUrl != null) {
+                updateQuery = updateQuery.set(PRODUCTS.CARDMARKET_URL, cmResult.resolvedUrl)
+            }
+            if (cmResult.title != null) {
+                updateQuery = updateQuery.set(PRODUCTS.NAME, cmResult.title)
+            }
         }
-        if (resolvedDeepLink != null) {
-            updateQuery = updateQuery.set(PRODUCTS.CARDMARKET_URL, resolvedDeepLink)
-        }
-        if (germanTitle != null) {
-            updateQuery = updateQuery.set(PRODUCTS.NAME, germanTitle)
+
+        // Temu-Kaufpreis aktualisieren (falls sich der Preis auf Temu geändert hat)
+        if (newTemuPrice != null) {
+            updateQuery = updateQuery.set(PRODUCTS.TEMU_PRICE, newTemuPrice)
+            logger.info("Temu-Kaufpreis für '{}' auf {} € aktualisiert.", product.name, newTemuPrice)
         }
 
         updateQuery.where(PRODUCTS.ID.eq(productId)).execute()
