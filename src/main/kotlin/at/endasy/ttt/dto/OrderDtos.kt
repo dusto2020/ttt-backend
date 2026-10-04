@@ -24,6 +24,11 @@ data class CreateOrderRequest(
     val items: List<OrderItemRequest> = emptyList(),
 )
 
+data class UpdateClaimRequest(
+    val isFullyClaimed: Boolean,
+    val claimedAmount: BigDecimal,
+)
+
 data class OrderItemResponse(
     val id: UUID,
     val productId: UUID,

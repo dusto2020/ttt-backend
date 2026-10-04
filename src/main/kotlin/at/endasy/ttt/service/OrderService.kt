@@ -124,4 +124,37 @@ class OrderService(private val dsl: DSLContext) {
             .where(ORDERS.ID.eq(id))
             .apply { if (!isAdmin) and(ORDERS.USER_ID.eq(userId)) }
             .execute()
+
+    @Transactional
+    fun updateClaimStatus(id: UUID, userId: UUID, isAdmin: Boolean, isFullyClaimed: Boolean, claimedAmount: java.math.BigDecimal): OrderResponse? {
+        val updated = dsl.update(ORDERS)
+            .set(ORDERS.IS_FULLY_CLAIMED, isFullyClaimed)
+            .set(ORDERS.CLAIMED_AMOUNT, claimedAmount)
+            .where(ORDERS.ID.eq(id))
+            .apply { if (!isAdmin) and(ORDERS.USER_ID.eq(userId)) }
+            .returning()
+            .fetchOne() ?: return null
+
+        val items = dsl.selectFrom(ORDER_ITEMS)
+            .where(ORDER_ITEMS.ORDER_ID.eq(updated.id))
+            .fetch()
+            .map { OrderItemResponse(it.id!!, it.productId!!, it.quantity!!) }
+
+        return OrderResponse(
+            id = updated.id!!,
+            userId = updated.userId!!,
+            deviceId = updated.deviceId,
+            sellerId = updated.sellerId,
+            orderSn = updated.orderSn!!,
+            eventType = updated.eventType,
+            cashPaid = updated.cashPaid!!,
+            creditUsed = updated.creditUsed!!,
+            totalReturn = updated.totalReturn!!,
+            claimedAmount = updated.claimedAmount!!,
+            isFullyClaimed = updated.isFullyClaimed ?: false,
+            orderDate = updated.orderDate,
+            createdAt = updated.createdAt,
+            items = items,
+        )
+    }
 }
