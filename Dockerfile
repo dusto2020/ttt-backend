@@ -5,7 +5,7 @@ COPY gradle gradle
 COPY build.gradle.kts settings.gradle.kts ./
 RUN chmod +x ./gradlew && ./gradlew dependencies --no-daemon || true
 COPY src src
-RUN ./gradlew bootJar --no-daemon -x test
+RUN DOCKER_BUILD=true ./gradlew bootJar --no-daemon -x test
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app

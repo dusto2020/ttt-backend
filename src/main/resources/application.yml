@@ -22,9 +22,9 @@ spring:
   application:
     name: ttt
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/ttt}
-    username: ${DB_USERNAME:ttt}
-    password: ${DB_PASSWORD:ttt}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ttt_db}
+    username: ${DB_USERNAME:tttadmin}
+    password: ${DB_PASSWORD:tttpassword}
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true

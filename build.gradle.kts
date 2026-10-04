@@ -73,6 +73,7 @@ jooq {
 					}
 					target.apply {
 						packageName = "com.teamrestocks.ttt.jooq"
+						directory = "src/generated/kotlin"
 					}
 				}
 			}
@@ -81,6 +82,9 @@ jooq {
 }
 
 kotlin {
+	sourceSets.main {
+		kotlin.srcDir("src/generated/kotlin") // <-- DIESE ZEILE HINZUFÜGEN
+	}
 	compilerOptions {
 		freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
 	}
@@ -91,4 +95,8 @@ tasks.withType<Test>().configureEach {
 	jvmArgumentProviders.add(CommandLineArgumentProvider {
 		listOf("-javaagent:${mockitoAgent.asPath}")
 	})
+}
+
+tasks.named("generateJooq").configure {
+	enabled = System.getenv("DOCKER_BUILD") != "true"
 }
