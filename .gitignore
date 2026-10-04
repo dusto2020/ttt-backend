@@ -1,0 +1,56 @@
+### --- Build & Compiled Artifacts ---
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Maven (if you switch to Maven)
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+
+# Compiled classes & logs
+*.class
+*.log
+*.jar
+*.war
+*.nar
+*.ear
+
+### --- jOOQ Generated Sources ---
+# If your jOOQ task outputs to src/main/generated instead of build/
+src/main/generated/
+src/generated/
+
+### --- Environment & Secrets ---
+# Keep your Discord Client Secret & DB passwords off GitHub!
+application-local.yml
+application-local.properties
+application-secret.yml
+application-secret.properties
+*.env
+.env.local
+
+### --- IDE & Editor Files ---
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Eclipse / NetBeans
+.project
+.classpath
+.settings/
+.nb-gradle/
+
+### --- OS Specific ---
+.DS_Store
+Thumbs.db
+Desktop.ini
