@@ -6,7 +6,7 @@ server:
         name: TTT_SESSION
         max-age: 14d
         http-only: true
-        # secure: true
+        secure: ${COOKIE_SECURE:false} # Lokal false (HTTP), in Docker true (HTTPS)
         same-site: lax
 
 spring:
@@ -19,14 +19,12 @@ spring:
       field: any
       getter: none
       is-getter: none
-  profiles:
-    active: local
   application:
     name: ttt
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ttt}
+    username: ${DB_USERNAME:ttt}
+    password: ${DB_PASSWORD:ttt}
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
@@ -50,12 +48,18 @@ spring:
             token-uri: https://discord.com/api/oauth2/token
             user-info-uri: https://discord.com/api/users/@me
             user-name-attribute: id
+
 ttt:
   flaresolverr:
     url: ${FLARESOLVERR_URL:http://localhost:8191/v1}
+
+# Serper Google Search Key
+serper:
+  api-key: ${SERPER_API_KEY:}
+
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
-# Default placeholders (overridden by application-local.yml or environment variables)
+
 discord:
   target-guild-id: ${DISCORD_TARGET_GUILD_ID:your_guild_id_here}
   client-id: ${DISCORD_CLIENT_ID:your_client_id_here}

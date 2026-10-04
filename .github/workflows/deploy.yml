@@ -1,0 +1,32 @@
+name: Deploy Backend to Hetzner
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            echo "🚀 Starte Backend-Deployment..."
+            
+            cd /root/ttt/ttt-backend
+            git pull origin main
+            
+            cd /root/ttt
+            docker compose up -d --build --no-deps backend
+            
+            echo "🧹 Bereinige alte Build-Images..."
+            docker image prune -f
+            
+            echo "✅ Backend erfolgreich deployed!"
