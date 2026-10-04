@@ -1,5 +1,6 @@
 package at.endasy.ttt.dto
 
+import at.endasy.ttt.model.CountryCode
 import at.endasy.ttt.model.EventType
 import at.endasy.ttt.model.RewardType
 import java.math.BigDecimal
@@ -18,6 +19,7 @@ data class CreateOrderRequest(
     val orderSn: String,
     val eventType: EventType,
     val rewardType: RewardType,
+    val countryCode: CountryCode = CountryCode.DE,
     val cashPaid: BigDecimal = BigDecimal.ZERO,
     val creditUsed: BigDecimal = BigDecimal.ZERO,
     val totalReturn: BigDecimal,
@@ -46,6 +48,7 @@ data class OrderResponse(
     val orderSn: String,
     val eventType: EventType,
     val rewardType: RewardType,
+    val countryCode: CountryCode,
     val cashPaid: BigDecimal,
     val creditUsed: BigDecimal,
     val totalReturn: BigDecimal,

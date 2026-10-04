@@ -4,6 +4,7 @@ import at.endasy.ttt.dto.ProductRequest
 import at.endasy.ttt.dto.toResponse
 import at.endasy.ttt.security.TttOAuth2User
 import at.endasy.ttt.security.requireAdmin
+import at.endasy.ttt.service.CardmarketPriceSyncScheduler
 import at.endasy.ttt.service.ProductService
 import java.util.UUID
 import org.springframework.http.ResponseEntity
@@ -19,7 +20,10 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/admin/products")
-class AdminProductController(private val productService: ProductService) {
+class AdminProductController(
+    private val productService: ProductService,
+    private val cardmarketPriceSyncScheduler: CardmarketPriceSyncScheduler,
+) {
 
     @GetMapping
     fun list(@AuthenticationPrincipal principal: TttOAuth2User?): ResponseEntity<Any> {
@@ -34,11 +38,13 @@ class AdminProductController(private val productService: ProductService) {
             productService.create(
                 body.name,
                 body.languageCode,
+                body.countryCode,
                 body.temuAffiliateUrl,
                 body.cardmarketUrl,
                 body.temuPrice,
                 body.cardmarketPrice,
                 body.isActive,
+                body.manualPriceOverride,
             ).toResponse(),
         )
     }
@@ -54,11 +60,13 @@ class AdminProductController(private val productService: ProductService) {
             id,
             body.name,
             body.languageCode,
+            body.countryCode,
             body.temuAffiliateUrl,
             body.cardmarketUrl,
             body.temuPrice,
             body.cardmarketPrice,
             body.isActive,
+            body.manualPriceOverride,
         ) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(updated.toResponse())
     }
@@ -68,6 +76,16 @@ class AdminProductController(private val productService: ProductService) {
         requireAdmin(principal)?.let { return it }
         val deleted = productService.delete(id)
         return if (deleted > 0) ResponseEntity.noContent().build() else ResponseEntity.notFound().build()
+    }
+
+    @PostMapping("/{id}/sync-cm")
+    fun syncCardmarket(@AuthenticationPrincipal principal: TttOAuth2User?, @PathVariable id: UUID): ResponseEntity<Any> {
+        requireAdmin(principal)?.let { return it }
+        val product = productService.findById(id) ?: return ResponseEntity.notFound().build()
+        val url = product.cardmarketUrl ?: return ResponseEntity.badRequest().build()
+        cardmarketPriceSyncScheduler.syncSingle(id, url)
+        val updated = productService.findById(id) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(updated.toResponse())
     }
 
 }

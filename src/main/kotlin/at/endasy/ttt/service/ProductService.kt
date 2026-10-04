@@ -1,5 +1,7 @@
 package at.endasy.ttt.service
 
+import at.endasy.ttt.model.CountryCode
+import at.endasy.ttt.model.LanguageCode
 import com.teamrestocks.ttt.jooq.tables.records.ProductsRecord
 import com.teamrestocks.ttt.jooq.tables.references.PRODUCTS
 import java.math.BigDecimal
@@ -21,42 +23,50 @@ class ProductService(private val dsl: DSLContext) {
 
     fun create(
         name: String,
-        languageCode: String,
+        languageCode: LanguageCode,
+        countryCode: CountryCode,
         temuAffiliateUrl: String,
         cardmarketUrl: String,
         temuPrice: BigDecimal,
         cardmarketPrice: BigDecimal,
         isActive: Boolean,
+        manualPriceOverride: BigDecimal? = null,
     ): ProductsRecord =
         dsl.insertInto(PRODUCTS)
             .set(PRODUCTS.NAME, name)
-            .set(PRODUCTS.LANGUAGE_CODE, languageCode)
+            .set(PRODUCTS.LANGUAGE_CODE, languageCode.wireName)
+            .set(PRODUCTS.COUNTRY_CODE, countryCode.wireName)
             .set(PRODUCTS.TEMU_AFFILIATE_URL, temuAffiliateUrl)
             .set(PRODUCTS.CARDMARKET_URL, cardmarketUrl)
             .set(PRODUCTS.TEMU_PRICE, temuPrice)
             .set(PRODUCTS.CARDMARKET_PRICE, cardmarketPrice)
             .set(PRODUCTS.IS_ACTIVE, isActive)
+            .set(PRODUCTS.MANUAL_PRICE_OVERRIDE, manualPriceOverride)
             .returning()
             .fetchOne()!!
 
     fun update(
         id: UUID,
         name: String,
-        languageCode: String,
+        languageCode: LanguageCode,
+        countryCode: CountryCode,
         temuAffiliateUrl: String,
         cardmarketUrl: String,
         temuPrice: BigDecimal,
         cardmarketPrice: BigDecimal,
         isActive: Boolean,
+        manualPriceOverride: BigDecimal? = null,
     ): ProductsRecord? =
         dsl.update(PRODUCTS)
             .set(PRODUCTS.NAME, name)
-            .set(PRODUCTS.LANGUAGE_CODE, languageCode)
+            .set(PRODUCTS.LANGUAGE_CODE, languageCode.wireName)
+            .set(PRODUCTS.COUNTRY_CODE, countryCode.wireName)
             .set(PRODUCTS.TEMU_AFFILIATE_URL, temuAffiliateUrl)
             .set(PRODUCTS.CARDMARKET_URL, cardmarketUrl)
             .set(PRODUCTS.TEMU_PRICE, temuPrice)
             .set(PRODUCTS.CARDMARKET_PRICE, cardmarketPrice)
             .set(PRODUCTS.IS_ACTIVE, isActive)
+            .set(PRODUCTS.MANUAL_PRICE_OVERRIDE, manualPriceOverride)
             .set(PRODUCTS.UPDATED_AT, org.jooq.impl.DSL.currentOffsetDateTime())
             .where(PRODUCTS.ID.eq(id))
             .returning()

@@ -24,7 +24,7 @@ class DeviceController(private val deviceService: DeviceService) {
     @GetMapping
     fun list(@AuthenticationPrincipal principal: TttOAuth2User?): ResponseEntity<Any> {
         requireAuth(principal)?.let { return it }
-        return ResponseEntity.ok(deviceService.findAllForUser(principal!!.userId).map { it.toResponse() })
+        return ResponseEntity.ok(deviceService.findDevicesForUser(principal!!.userId).map { it.toResponse() })
     }
 
     @PostMapping

@@ -1,5 +1,7 @@
 package at.endasy.ttt.dto
 
+import at.endasy.ttt.model.CountryCode
+import at.endasy.ttt.model.LanguageCode
 import com.teamrestocks.ttt.jooq.tables.records.ProductsRecord
 import com.teamrestocks.ttt.jooq.tables.records.SellersRecord
 import com.teamrestocks.ttt.jooq.tables.records.UserDevicesRecord
@@ -9,12 +11,14 @@ import java.util.UUID
 
 data class ProductRequest(
     val name: String,
-    val languageCode: String = "EN",
+    val languageCode: LanguageCode = LanguageCode.EN,
+    val countryCode: CountryCode = CountryCode.DE,
     val temuAffiliateUrl: String,
     val cardmarketUrl: String,
     val temuPrice: BigDecimal,
     val cardmarketPrice: BigDecimal,
     val isActive: Boolean = true,
+    val manualPriceOverride: BigDecimal? = null,
 )
 
 data class SellerRequest(
@@ -30,13 +34,17 @@ data class DeviceRequest(
 data class ProductResponse(
     val id: UUID,
     val name: String,
-    val languageCode: String,
+    val languageCode: LanguageCode,
+    val countryCode: CountryCode,
     val temuAffiliateUrl: String,
     val cardmarketUrl: String,
     val temuPrice: BigDecimal,
     val cardmarketPrice: BigDecimal,
     val isActive: Boolean,
     val updatedAt: OffsetDateTime?,
+    val cardmarketLowestPrice: BigDecimal?,
+    val cardmarketUpdatedAt: OffsetDateTime?,
+    val manualPriceOverride: BigDecimal?,
 )
 
 data class SellerResponse(
@@ -56,13 +64,17 @@ data class DeviceResponse(
 fun ProductsRecord.toResponse() = ProductResponse(
     id = id!!,
     name = name!!,
-    languageCode = languageCode!!,
+    languageCode = LanguageCode.entries.find { it.wireName == languageCode } ?: LanguageCode.EN,
+    countryCode = CountryCode.entries.find { it.wireName == countryCode } ?: CountryCode.DE,
     temuAffiliateUrl = temuAffiliateUrl!!,
     cardmarketUrl = cardmarketUrl!!,
     temuPrice = temuPrice!!,
     cardmarketPrice = cardmarketPrice!!,
     isActive = isActive ?: false,
     updatedAt = updatedAt,
+    cardmarketLowestPrice = cardmarketLowestPrice,
+    cardmarketUpdatedAt = cardmarketUpdatedAt,
+    manualPriceOverride = manualPriceOverride,
 )
 
 fun SellersRecord.toResponse() = SellerResponse(

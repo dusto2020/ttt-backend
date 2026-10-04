@@ -9,8 +9,15 @@ import org.springframework.stereotype.Service
 @Service
 class DeviceService(private val dsl: DSLContext) {
 
-    fun findAllForUser(userId: UUID): List<UserDevicesRecord> =
-        dsl.selectFrom(USER_DEVICES).where(USER_DEVICES.USER_ID.eq(userId)).orderBy(USER_DEVICES.LABEL).fetch()
+    fun findDevicesForUser(userId: UUID): List<UserDevicesRecord> {
+        val devices =
+            dsl.selectFrom(USER_DEVICES).where(USER_DEVICES.USER_ID.eq(userId)).orderBy(USER_DEVICES.LABEL).fetch()
+        if (devices.isEmpty()) {
+            val defaultDevice = create(userId, "Hauptgerät")
+            return listOf(defaultDevice)
+        }
+        return devices
+    }
 
     fun findByIdForUser(id: UUID, userId: UUID): UserDevicesRecord? =
         dsl.selectFrom(USER_DEVICES)

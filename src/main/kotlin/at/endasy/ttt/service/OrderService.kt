@@ -4,6 +4,7 @@ import at.endasy.ttt.dto.CreateOrderRequest
 import at.endasy.ttt.dto.OrderItemRequest
 import at.endasy.ttt.dto.OrderItemResponse
 import at.endasy.ttt.dto.OrderResponse
+import at.endasy.ttt.model.CountryCode
 import at.endasy.ttt.model.EventType
 import at.endasy.ttt.model.RewardType
 import com.teamrestocks.ttt.jooq.tables.records.OrdersRecord
@@ -20,11 +21,15 @@ private fun OrdersRecord.toOrderResponse(items: List<OrderItemResponse>): OrderR
     val orderSn = checkNotNull(orderSn) { "Order $id has no order_sn" }
     val eventTypeWire = checkNotNull(eventType) { "Order $id has no event_type" }
     val rewardTypeWire = checkNotNull(rewardType) { "Order $id has no reward_type" }
+    val countryCodeWire = checkNotNull(countryCode) { "Order $id has no country_code" }
     val eventType = checkNotNull(EventType.entries.find { it.wireName == eventTypeWire }) {
         "Order $id has unknown event_type '$eventTypeWire'"
     }
     val rewardType = checkNotNull(RewardType.entries.find { it.wireName == rewardTypeWire }) {
         "Order $id has unknown reward_type '$rewardTypeWire'"
+    }
+    val countryCode = checkNotNull(CountryCode.entries.find { it.wireName == countryCodeWire }) {
+        "Order $id has unknown country_code '$countryCodeWire'"
     }
     val cashPaid = checkNotNull(cashPaid) { "Order $id has no cash_paid" }
     val creditUsed = checkNotNull(creditUsed) { "Order $id has no credit_used" }
@@ -39,6 +44,7 @@ private fun OrdersRecord.toOrderResponse(items: List<OrderItemResponse>): OrderR
         orderSn = orderSn,
         eventType = eventType,
         rewardType = rewardType,
+        countryCode = countryCode,
         cashPaid = cashPaid,
         creditUsed = creditUsed,
         totalReturn = totalReturn,
@@ -69,6 +75,7 @@ class OrderService(private val dsl: DSLContext) {
             .set(ORDERS.ORDER_SN, request.orderSn)
             .set(ORDERS.EVENT_TYPE, request.eventType.wireName)
             .set(ORDERS.REWARD_TYPE, request.rewardType.wireName)
+            .set(ORDERS.COUNTRY_CODE, request.countryCode.wireName)
             .set(ORDERS.CASH_PAID, request.cashPaid)
             .set(ORDERS.CREDIT_USED, request.creditUsed)
             .set(ORDERS.TOTAL_RETURN, request.totalReturn)
