@@ -7,6 +7,7 @@ import at.endasy.ttt.dto.OrderResponse
 import at.endasy.ttt.model.CountryCode
 import at.endasy.ttt.model.EventType
 import at.endasy.ttt.model.RewardType
+import com.teamrestocks.ttt.jooq.tables.records.OrderItemsRecord
 import com.teamrestocks.ttt.jooq.tables.records.OrdersRecord
 import com.teamrestocks.ttt.jooq.tables.references.ORDERS
 import com.teamrestocks.ttt.jooq.tables.references.ORDER_ITEMS
@@ -56,11 +57,18 @@ private fun OrdersRecord.toOrderResponse(items: List<OrderItemResponse>): OrderR
     )
 }
 
-private fun toOrderItemResponse(record: com.teamrestocks.ttt.jooq.tables.records.OrderItemsRecord): OrderItemResponse {
+// FIX: productId darf bei Füllartikeln null sein!
+private fun toOrderItemResponse(record: OrderItemsRecord): OrderItemResponse {
     val id = checkNotNull(record.id) { "Order item id must not be null" }
-    val productId = checkNotNull(record.productId) { "Order item $id has no product_id" }
-    val quantity = checkNotNull(record.quantity) { "Order item $id has no quantity" }
-    return OrderItemResponse(id, productId, quantity)
+    val quantity = record.quantity ?: 1
+    val isFiller = record.isFiller ?: false
+    return OrderItemResponse(
+        id = id,
+        productId = record.productId,
+        quantity = quantity,
+        isFiller = isFiller,
+        customName = record.customName,
+    )
 }
 
 @Service
@@ -87,18 +95,37 @@ class OrderService(private val dsl: DSLContext) {
 
         checkNotNull(orderRecord) { "Failed to insert order ${request.orderSn}" }
 
-        val itemResponses = request.items.map { item: OrderItemRequest ->
+        val createdItems = mutableListOf<OrderItemsRecord>()
+
+        // 1. Normale Pokémon-Artikel anlegen (starten mit Status IN_STOCK)
+        request.items.forEach { item: OrderItemRequest ->
             val itemRecord = dsl.insertInto(ORDER_ITEMS)
                 .set(ORDER_ITEMS.ORDER_ID, orderRecord.id)
                 .set(ORDER_ITEMS.PRODUCT_ID, item.productId)
                 .set(ORDER_ITEMS.QUANTITY, item.quantity)
+                .set(ORDER_ITEMS.STATUS, "IN_STOCK")
+                .set(ORDER_ITEMS.IS_FILLER, false)
                 .returning()
                 .fetchOne()
-            checkNotNull(itemRecord) { "Failed to insert order item for product ${item.productId}" }
-            toOrderItemResponse(itemRecord)
+            if (itemRecord != null) createdItems.add(itemRecord)
         }
 
-        return orderRecord.toOrderResponse(itemResponses)
+        // 2. Füllartikel / Beikauf anlegen (falls vorhanden)
+        if (request.hasFiller && request.fillerCost != null) {
+            val fillerRecord = dsl.insertInto(ORDER_ITEMS)
+                .set(ORDER_ITEMS.ORDER_ID, orderRecord.id)
+                .setNull(ORDER_ITEMS.PRODUCT_ID) // kein Katalog-Produkt
+                .set(ORDER_ITEMS.QUANTITY, 1)
+                .set(ORDER_ITEMS.STATUS, "IN_STOCK")
+                .set(ORDER_ITEMS.IS_FILLER, true)
+                .set(ORDER_ITEMS.CUSTOM_NAME, request.fillerName?.ifBlank { "Füllartikel" } ?: "Füllartikel")
+                .set(ORDER_ITEMS.FILLER_COST, request.fillerCost)
+                .returning()
+                .fetchOne()
+            if (fillerRecord != null) createdItems.add(fillerRecord)
+        }
+
+        return orderRecord.toOrderResponse(createdItems.map { toOrderItemResponse(it) })
     }
 
     fun findOrders(userId: UUID, isAdmin: Boolean): List<OrderResponse> {

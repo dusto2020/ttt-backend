@@ -27,6 +27,10 @@ data class CreateOrderRequest(
     val isFullyClaimed: Boolean = false,
     val orderDate: LocalDate? = null,
     val items: List<OrderItemRequest> = emptyList(),
+    // Füllartikel Felder mit Default-Werten:
+    val hasFiller: Boolean = false,
+    val fillerName: String? = null,
+    val fillerCost: BigDecimal? = null,
 )
 
 data class UpdateClaimRequest(
@@ -36,8 +40,10 @@ data class UpdateClaimRequest(
 
 data class OrderItemResponse(
     val id: UUID,
-    val productId: UUID,
+    val productId: UUID?, // <-- Darf jetzt NULL sein!
     val quantity: Int,
+    val isFiller: Boolean = false,
+    val customName: String? = null,
 )
 
 data class OrderResponse(
