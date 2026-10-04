@@ -5,11 +5,11 @@ import java.math.RoundingMode
 import org.springframework.stereotype.Service
 
 enum class DealTier(val label: String, val color: String) {
-    GOD_TIER("🔥 GOD TIER", "#00F076"),
-    EXCELLENT("✅ EXCELLENT", "#00C853"),
-    DECENT("⚠️ DECENT", "#FFB300"),
-    MEDIOCRE("🛑 MEDIOCRE", "#FF8A00"),
-    TRASH("💀 TRASH", "#FF3B57"),
+    TOP_DEAL("Hervorragend", "#00F076"),       // < 15% Markup
+    STRONG("Sehr lohnenswert", "#00C853"),     // 15% - 28%
+    SOLID("Solide", "#FFB300"),                // 28% - 42%
+    LOW_MARGIN("Geringe Marge", "#FF8A00"),     // 42% - 55%
+    UNPROFITABLE("Unrentabel", "#94A3B8"),     // > 55%
 }
 
 data class PaypalCashbackResult(
@@ -36,11 +36,11 @@ class DealCalculationService {
     }
 
     fun dealTier(markupPct: BigDecimal): DealTier = when {
-        markupPct < BigDecimal(15) -> DealTier.GOD_TIER
-        markupPct < BigDecimal(28) -> DealTier.EXCELLENT
-        markupPct < BigDecimal(42) -> DealTier.DECENT
-        markupPct < BigDecimal(55) -> DealTier.MEDIOCRE
-        else -> DealTier.TRASH
+        markupPct < BigDecimal(15) -> DealTier.TOP_DEAL
+        markupPct < BigDecimal(28) -> DealTier.STRONG
+        markupPct < BigDecimal(42) -> DealTier.SOLID
+        markupPct < BigDecimal(55) -> DealTier.LOW_MARGIN
+        else -> DealTier.UNPROFITABLE
     }
 
     fun paypalCashbackScenario(

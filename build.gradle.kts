@@ -46,6 +46,7 @@ dependencies {
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
+	implementation("org.springframework.session:spring-session-jdbc")
 	mockitoAgent("org.mockito:mockito-core") { isTransitive = false }
 
 }

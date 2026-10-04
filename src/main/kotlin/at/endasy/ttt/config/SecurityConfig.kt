@@ -9,8 +9,10 @@ import org.springframework.security.config.annotation.web.configurers.oauth2.cli
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.http.HttpStatus
+import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHttpSession
 
 @Configuration
+@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 14 * 24 * 60 * 60)
 class SecurityConfig(
     private val discordOAuth2UserService: DiscordOAuth2UserService,
     @Value("\${app.frontend-url:http://localhost:5173}") private val frontendUrl: String,

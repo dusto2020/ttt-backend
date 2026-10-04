@@ -14,10 +14,14 @@ class DealService(
     private val dealCalculationService: DealCalculationService,
 ) {
 
-    fun findActiveDeals(countryCode: CountryCode? = null): List<DealDto> =
-        dsl.selectFrom(PRODUCTS)
-            .where(PRODUCTS.IS_ACTIVE.isTrue)
-            .apply { countryCode?.let { and(PRODUCTS.COUNTRY_CODE.eq(it.wireName)) } }
+    fun findActiveDeals(countryCode: CountryCode? = null): List<DealDto> {
+        val conditions = mutableListOf(PRODUCTS.IS_ACTIVE.isTrue)
+        if (countryCode != null) {
+            conditions.add(PRODUCTS.COUNTRY_CODE.eq(countryCode.wireName))
+        }
+
+        return dsl.selectFrom(PRODUCTS)
+            .where(conditions)
             .orderBy(PRODUCTS.NAME)
             .fetch()
             .map { product ->
@@ -25,11 +29,12 @@ class DealService(
                 val effectiveCmPrice = product.manualPriceOverride ?: product.cardmarketLowestPrice
 
                 // Spread-Berechnung mit dem echten Live-Preis
-                val spreadRatio = if (effectiveCmPrice != null && product.temuPrice != null && product.temuPrice!!.signum() != 0) {
-                    effectiveCmPrice.divide(product.temuPrice, 4, RoundingMode.HALF_UP)
-                } else {
-                    null
-                }
+                val spreadRatio =
+                    if (effectiveCmPrice != null && product.temuPrice != null && product.temuPrice!!.signum() != 0) {
+                        effectiveCmPrice.divide(product.temuPrice, 4, RoundingMode.HALF_UP)
+                    } else {
+                        null
+                    }
 
                 val cardmarketNetPrice = effectiveCmPrice?.let { dealCalculationService.cardmarketNet(it) }
                 val markupPercent = effectiveCmPrice?.let {
@@ -56,4 +61,5 @@ class DealService(
                     manualPriceOverride = product.manualPriceOverride,
                 )
             }
+    }
 }

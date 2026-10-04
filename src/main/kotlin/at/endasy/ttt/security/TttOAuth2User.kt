@@ -1,5 +1,6 @@
 package at.endasy.ttt.security
 
+import java.io.Serializable
 import java.util.UUID
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.oauth2.core.user.OAuth2User
@@ -14,11 +15,15 @@ class TttOAuth2User(
     val discordUsername: String,
     val avatarUrl: String?,
     val isAdmin: Boolean,
-) : OAuth2User {
+) : OAuth2User, Serializable {
 
     override fun getName(): String = discordId
 
     override fun getAttributes(): Map<String, Any> = delegate.attributes
 
     override fun getAuthorities(): Collection<GrantedAuthority> = delegate.authorities
+
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
 }
