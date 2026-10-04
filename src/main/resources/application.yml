@@ -39,6 +39,9 @@ spring:
             user-info-uri: https://discord.com/api/users/@me
             user-name-attribute: id
 
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+
 # Default placeholders (overridden by application-local.yml or environment variables)
 discord:
   target-guild-id: ${DISCORD_TARGET_GUILD_ID:your_guild_id_here}

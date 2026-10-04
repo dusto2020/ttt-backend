@@ -1,6 +1,7 @@
 package at.endasy.ttt.config
 
 import at.endasy.ttt.security.DiscordOAuth2UserService
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -10,7 +11,10 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.http.HttpStatus
 
 @Configuration
-class SecurityConfig(private val discordOAuth2UserService: DiscordOAuth2UserService) {
+class SecurityConfig(
+    private val discordOAuth2UserService: DiscordOAuth2UserService,
+    @Value("\${app.frontend-url:http://localhost:5173}") private val frontendUrl: String,
+) {
 
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
@@ -22,7 +26,8 @@ class SecurityConfig(private val discordOAuth2UserService: DiscordOAuth2UserServ
             }
             .oauth2Login { oauth2: OAuth2LoginConfigurer<HttpSecurity> ->
                 oauth2.userInfoEndpoint { it.userService(discordOAuth2UserService) }
-                oauth2.defaultSuccessUrl("/api/auth/me", true)
+                oauth2.defaultSuccessUrl("$frontendUrl/", true)
+                oauth2.failureUrl("$frontendUrl/unauthorized")
             }
             .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
             .csrf { it.disable() }
