@@ -13,79 +13,211 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
+data class ScrapedCardmarketData(
+    val price: BigDecimal?,
+    val resolvedUrl: String?,
+    val title: String?,
+)
+
 @Service
 class CardmarketScraperService(
     @Value($$"${ttt.flaresolverr.url:http://localhost:8191/v1}")
     private val flareSolverrUrl: String,
+    @Value($$"${serper.api-key:}")
+    private val serperApiKey: String = ""
 ) {
     private val objectMapper = ObjectMapper()
-
     private val logger = LoggerFactory.getLogger(CardmarketScraperService::class.java)
 
     private val httpClient: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(15))
         .build()
 
-    fun fetchLowestPrice(url: String): BigDecimal? {
-        if (url.isBlank()) return null
+
+    fun resolveCardmarketUrlViaGoogle(productName: String, languageCode: String? = null): String? {
+        if (serperApiKey.isBlank()) {
+            logger.warn("Serper API Key ist nicht konfiguriert in application.yml (ttt.serper.api-key)")
+            return null
+        }
 
         return try {
-            logger.info("Scraping Cardmarket via FlareSolverr: {}", url)
+            var cleanQuery = productName
+                .replace(Regex("^\\[(DE|EN|JP)]\\s*"), "")
+                .replace(Regex("(?i)[–-]\\s*\\d+\\s*Booster.*"), "")
+                .replace(Regex("(?i)English|Deutsch|German|Japanese"), "")
+                .trim()
+
+            if (!cleanQuery.startsWith("Pokemon", ignoreCase = true) && !cleanQuery.startsWith("Pokémon", ignoreCase = true)) {
+                cleanQuery = "Pokemon $cleanQuery"
+            }
+
+            val fullSearchQuery = "$cleanQuery cardmarket"
+            logger.info("Querying Google via Serper.dev for: '{}'", fullSearchQuery)
 
             val payload = mapOf(
-                "cmd" to "request.get",
-                "url" to url,
-                "maxTimeout" to 60000
+                "q" to fullSearchQuery,
+                "gl" to "de",
+                "hl" to "de",
+                "num" to 5
             )
 
             val request = HttpRequest.newBuilder()
-                .uri(URI.create(flareSolverrUrl))
+                .uri(URI.create("https://google.serper.dev/search"))
+                .header("X-API-KEY", serperApiKey)
                 .header("Content-Type", "application/json")
-                .timeout(Duration.ofSeconds(65))
+                .timeout(Duration.ofSeconds(10))
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                 .build()
 
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-
             if (response.statusCode() != 200) {
-                logger.warn("FlareSolverr returned HTTP {}: {}", response.statusCode(), response.body())
+                logger.warn("Serper.dev returned HTTP {}: {}", response.statusCode(), response.body())
                 return null
             }
 
             val rootNode = objectMapper.readTree(response.body())
-            val status = rootNode.path("status").asText()
+            val organicArray = rootNode.path("organic")
 
-            if (status != "ok") {
-                logger.warn("FlareSolverr request failed: {}", rootNode.path("message").asText())
-                return null
+            if (organicArray.isArray) {
+                for (item in organicArray) {
+                    val link = item.path("link").asText("")
+                    if (link.contains("cardmarket.com/", ignoreCase = true) &&
+                        link.contains("/Pokemon/Products/", ignoreCase = true) &&
+                        !link.contains("/Search", ignoreCase = true)) {
+
+                        // Link immer auf /de/ biegen
+                        val finalUrl = buildCardmarketUrlWithFilters(link, languageCode)
+
+                        logger.info("Serper (Google) found Cardmarket Deep Link: {}", finalUrl)
+                        return finalUrl
+                    }
+                }
             }
 
-            val html = rootNode.path("solution").path("response").asText()
-            if (html.isBlank()) {
-                logger.warn("FlareSolverr returned empty HTML for {}", url)
-                return null
-            }
-
-            val document = Jsoup.parse(html)
-
-            // 1. "From" / "Ab" im Info-Block
-            val price = extractPriceFromInfoList(document, listOf("From", "Ab"))
-            // 2. Fallback: Erste Zeile der Artikeltabelle
-                ?: extractPriceFromFirstArticleRow(document)
-                // 3. Fallback: Preistrend falls ausverkauft
-                ?: extractPriceFromInfoList(document, listOf("Price Trend", "Preistrend"))
-
-            if (price != null) {
-                logger.info("Successfully scraped price: {} € for {}", price, url)
-            } else {
-                logger.warn("Could not find price in rendered HTML for {}", url)
-            }
-
-            price
+            logger.warn("Serper returned no Cardmarket product link for: '{}'", fullSearchQuery)
+            null
         } catch (ex: Exception) {
-            logger.warn("Failed to scrape Cardmarket price via FlareSolverr from {}: {}", url, ex.message)
+            logger.warn("Failed to query Google via Serper.dev: {}", ex.message)
             null
         }
+    }
+
+    /**
+     * Extrahiert den deutschen Titel aus dem <h1> und ignoriert Suchseiten
+     */
+    private fun extractGermanTitle(document: Document, url: String): String? {
+        // NIEMALS Titel von Suchergebnisseiten übernehmen!
+        if (url.contains("/Search", ignoreCase = true)) return null
+
+        val h1 = document.selectFirst(".page-title-container h1")
+            ?: document.selectFirst("h1")
+            ?: return null
+
+        val h1Clone = h1.clone()
+        h1Clone.select("span").remove()
+
+        val cleanTitle = h1Clone.text().trim()
+
+        // Sicherheitsprüfung gegen Cardmarket-Suchseiten
+        if (cleanTitle.equals("Suchergebnisse", ignoreCase = true) ||
+            cleanTitle.equals("Search Results", ignoreCase = true) ||
+            cleanTitle.isBlank()) {
+            return null
+        }
+
+        return cleanTitle
+    }
+
+    fun fetchLowestPrice(
+        url: String?,
+        productNameFallback: String? = null,
+        languageCode: String? = null,
+    ): ScrapedCardmarketData? {
+        var targetUrl = url?.trim().orEmpty()
+        var resolvedDeepLink: String? = null
+
+        // 1. WENN DER LINK LEER IST ODER EIN SUCHLINK -> Über Google (Serper) suchen!
+        if (targetUrl.isBlank() || targetUrl.contains("/Search", ignoreCase = true)) {
+            val queryFromUrl = if (targetUrl.contains("searchString=")) {
+                java.net.URLDecoder.decode(targetUrl.substringAfter("searchString=").substringBefore("&"), "UTF-8")
+            } else {
+                productNameFallback ?: ""
+            }
+
+            if (queryFromUrl.isBlank()) {
+                logger.warn("Kann Cardmarket nicht durchsuchen: Sowohl URL als auch Produktname sind leer.")
+                return null
+            }
+
+            logger.info("Kein gültiger Deeplink vorhanden. Starte Google-Suche für: '{}'", queryFromUrl)
+            val foundUrl = resolveCardmarketUrlViaGoogle(queryFromUrl, languageCode)
+
+            if (foundUrl != null) {
+                targetUrl = foundUrl
+                resolvedDeepLink = foundUrl
+            } else {
+                logger.warn("Google konnte keinen Cardmarket-Link für '{}' finden.", queryFromUrl)
+                return null
+            }
+        }
+
+        return try {
+            // Exakte Sprach- und Länderfilter anfügen
+            targetUrl = buildCardmarketUrlWithFilters(targetUrl, languageCode)
+            resolvedDeepLink = targetUrl
+
+            logger.info("Scraping Cardmarket (DE) with language filter: {}", targetUrl)
+
+            val html = fetchHtmlViaFlareSolverr(targetUrl) ?: return null
+            val document = Jsoup.parse(html)
+
+            // 1. Deutschen Titel aus dem h1 extrahieren
+            val germanTitle = extractGermanTitle(document, targetUrl)
+
+            // 2. Preis ermitteln
+            val price = extractPriceFromInfoList(document, listOf("Ab", "From"))
+                ?: extractPriceFromFirstArticleRow(document)
+                ?: extractPriceFromInfoList(document, listOf("Preistrend", "Price Trend"))
+
+            if (price != null) {
+                logger.info("Scraped price: {} € | Title: '{}' for {}", price, germanTitle, targetUrl)
+            }
+
+            ScrapedCardmarketData(
+                price = price,
+                resolvedUrl = resolvedDeepLink,
+                title = germanTitle,
+            )
+        } catch (ex: Exception) {
+            logger.warn("Failed to scrape Cardmarket price from {}: {}", targetUrl, ex.message)
+            null
+        }
+    }
+
+    private fun fetchHtmlViaFlareSolverr(url: String, cookies: List<Map<String, String>> = emptyList()): String? {
+        val payload = mutableMapOf<String, Any>(
+            "cmd" to "request.get",
+            "url" to url,
+            "maxTimeout" to 60000,
+        )
+        if (cookies.isNotEmpty()) {
+            payload["cookies"] = cookies
+        }
+
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(flareSolverrUrl))
+            .header("Content-Type", "application/json")
+            .timeout(Duration.ofSeconds(65))
+            .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+            .build()
+
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() != 200) return null
+
+        val rootNode = objectMapper.readTree(response.body())
+        if (rootNode.path("status").asText() != "ok") return null
+
+        return rootNode.path("solution").path("response").asText()
     }
 
     private fun extractPriceFromInfoList(document: Document, targetLabels: List<String>): BigDecimal? {
@@ -122,6 +254,18 @@ class CardmarketScraperService(
             logger.warn("Failed to parse Cardmarket price '{}': {}", raw, ex.message)
             null
         }
+    }
+
+    fun buildCardmarketUrlWithFilters(url: String, languageCode: String?): String {
+        val langId = when (languageCode?.uppercase()) {
+            "DE" -> 3
+            "JP" -> 7
+            else -> 1 // Standard: Englisch
+        }
+        val baseUrl = url.substringBefore("?")
+            .replace(Regex("/(en|fr|es|it)/Pokemon/"), "/de/Pokemon/")
+
+        return "$baseUrl?sellerCountry=1,7&language=$langId"
     }
 
     companion object {

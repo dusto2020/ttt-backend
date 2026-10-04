@@ -84,14 +84,12 @@ class AdminProductController(
     }
 
     @PostMapping("/{id}/sync-cm")
-    fun syncCardmarket(
-        @AuthenticationPrincipal principal: TttOAuth2User?,
-        @PathVariable id: UUID
-    ): ResponseEntity<Any> {
+    fun syncCardmarket(@AuthenticationPrincipal principal: TttOAuth2User?, @PathVariable id: UUID): ResponseEntity<Any> {
         requireAdmin(principal)?.let { return it }
         val product = productService.findById(id) ?: return ResponseEntity.notFound().build()
-        val url = product.cardmarketUrl ?: return ResponseEntity.badRequest().build()
-        cardmarketPriceSyncScheduler.syncSingle(id, url)
+
+        cardmarketPriceSyncScheduler.syncSingle(id, product.cardmarketUrl ?: "")
+
         val updated = productService.findById(id) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(updated.toResponse())
     }

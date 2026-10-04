@@ -37,12 +37,29 @@ class CardmarketPriceSyncScheduler(
         logger.info("Cardmarket price sync finished")
     }
 
-    fun syncSingle(productId: java.util.UUID, url: String) {
-        val price = scraperService.fetchLowestPrice(url) ?: return
-        dsl.update(PRODUCTS)
-            .set(PRODUCTS.CARDMARKET_LOWEST_PRICE, price)
+    fun syncSingle(productId: java.util.UUID, url: String? = null) {
+        val product = dsl.selectFrom(PRODUCTS).where(PRODUCTS.ID.eq(productId)).fetchOne() ?: return
+        val targetUrl = url ?: product.cardmarketUrl ?: ""
+
+        val result = scraperService.fetchLowestPrice(targetUrl, product.name, product.languageCode) ?: return
+
+        val price = result.price
+        val resolvedDeepLink = result.resolvedUrl
+        val germanTitle = result.title
+
+        var updateQuery = dsl.update(PRODUCTS)
             .set(PRODUCTS.CARDMARKET_UPDATED_AT, java.time.OffsetDateTime.ofInstant(Instant.now(), java.time.ZoneOffset.UTC))
-            .where(PRODUCTS.ID.eq(productId))
-            .execute()
+
+        if (price != null) {
+            updateQuery = updateQuery.set(PRODUCTS.CARDMARKET_LOWEST_PRICE, price)
+        }
+        if (resolvedDeepLink != null) {
+            updateQuery = updateQuery.set(PRODUCTS.CARDMARKET_URL, resolvedDeepLink)
+        }
+        if (germanTitle != null) {
+            updateQuery = updateQuery.set(PRODUCTS.NAME, germanTitle)
+        }
+
+        updateQuery.where(PRODUCTS.ID.eq(productId)).execute()
     }
 }
