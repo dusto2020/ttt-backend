@@ -9,6 +9,10 @@ plugins {
 group = "at.endasy"
 version = "0.0.1-SNAPSHOT"
 
+val jooqVersion = "3.21.7"
+extra["jooq.version"] = jooqVersion
+val mockitoAgent = configurations.create("mockitoAgent")
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
@@ -40,10 +44,12 @@ dependencies {
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
+	mockitoAgent("org.mockito:mockito-core") { isTransitive = false }
+
 }
 
 jooq {
-	version.set("3.21.7")
+	version.set(jooqVersion)
 	configurations {
 		create("main") {
 			jooqConfiguration.apply {
@@ -77,6 +83,9 @@ kotlin {
 	}
 }
 
-tasks.withType<Test> {
+tasks.withType<Test>().configureEach {
 	useJUnitPlatform()
+	jvmArgumentProviders.add(CommandLineArgumentProvider {
+		listOf("-javaagent:${mockitoAgent.asPath}")
+	})
 }
