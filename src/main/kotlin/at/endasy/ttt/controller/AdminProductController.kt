@@ -189,29 +189,63 @@ class AdminProductController(
     }
 
     private fun detectLanguage(title: String, url: String): LanguageCode {
-        val combined = "$title $url".lowercase()
-        return when {
-            combined.contains("deutsch") ||
-                    combined.contains("german") ||
-                    combined.contains("top-trainer-box") -> LanguageCode.DE
+        val titleLower = title.lowercase()
+        val combined = "$titleLower ${url.lowercase()}"
 
+        return when {
+            // 1. Japanisch
             combined.contains("japanese") ||
                     combined.contains("japanisch") ||
-                    combined.contains("japan") -> LanguageCode.JP
+                    combined.contains("japan") ||
+                    Regex("\\b(jp|jap)\\b").containsMatchIn(titleLower) -> LanguageCode.JP
 
+            // 2. Deutsch
+            combined.contains("deutsch") ||
+                    combined.contains("german") ||
+                    combined.contains("top-trainer-box") ||
+                    Regex("\\bde\\b").containsMatchIn(titleLower) -> LanguageCode.DE
+
+            // 3. Englisch (Explizit)
+            combined.contains("english") ||
+                    combined.contains("englisch") ||
+                    Regex("\\ben\\b").containsMatchIn(titleLower) -> LanguageCode.EN
+
+            // Default Fallback
             else -> LanguageCode.EN
         }
     }
 
     private fun cleanPokemonTitle(raw: String, lang: LanguageCode): String {
-        val cleaned = raw
-            .replace(Regex("(?i)Pokémon\\s*TCG:?\\s*"), "")
+        var cleaned = raw
+            // 1. Franchise & TCG-Müll ("Original Pokémon TCG:", "Pokemon Trading Card Game")
+            .replace(Regex("(?i)(Original\\s*)?Pok[eé]mon\\s*(TCG|Trading Card Game|Trading Cards|Sammelkartenspiel|Sammelkarten)?:?\\s*"), "")
+
+            // 2. SEO-Spam Wörter
+            .replace(Regex("(?i)\\b(Trading Cards?|Trading Card Game|Sammelkarten(spiel)?|Spielzeug|Geschenk(idee)?|Toys?|Gifts?|Original|Authentic)\\b"), "")
+
+            // 3. Zustandsbeschreibungen
+            .replace(Regex("(?i)\\b(Sealed|OVP|Neu|New|Factory)\\b"), "")
+
+            // 4. Sprachen als Wort (werden ja eh durch [DE]/[EN] ersetzt)
+            .replace(Regex("(?i)\\b(Deutsch|German|Englisch|English|Japanisch|Japanese)\\b"), "")
+
+            // 5. Sprach-Abkürzungen wie [DE], (EN), - JP
+            .replace(Regex("(?i)[\\[\\(]?(DE|EN|JP|GER|ENG|JAP)[\\]\\)]?\\b"), "")
+
+            // 6. Typische Temu Suffixe
             .replace(Regex("(?i)[–-]\\s*Collector.*"), "")
             .replace(Regex("(?i)[–-]\\s*Playset.*"), "")
-            .replace(Regex("(?i)Sealed.*"), "")
-            .replace(Regex("(?i)OVP.*"), "")
+            // .replace(Regex("(?i)[–-]\\s*\\d+\\s*Boosters?.*"), "") // Z.B. "- 9 Boosters" oder "– 36 Booster"
+
+        // 7. Aufräumen (entfernt doppelte Leerzeichen und übrig gebliebene Bindestriche am Anfang/Ende)
+        cleaned = cleaned
+            .replace(Regex("\\s{2,}"), " ")
+            .replace(Regex("^[\\s\\-–|]+|[\\s\\-–|]+$"), "")
             .trim()
 
+        // Da wir das Wort "Pokémon" oben komplett entfernt haben für saubere Titel,
+        // kannst du entscheiden, ob du es hier wieder fest einbauen willst:
+        // z.B. return "[${lang.wireName}] Pokémon $cleaned"
         return "[${lang.wireName}] $cleaned"
     }
 }

@@ -85,14 +85,21 @@ class CardmarketScraperService(
             if (organicArray.isArray) {
                 for (item in organicArray) {
                     val link = item.path("link").asText("")
-                    if (link.contains("cardmarket.com/", ignoreCase = true) &&
-                        link.contains("/Pokemon/Products/", ignoreCase = true) &&
-                        !link.contains("/Search", ignoreCase = true)
-                    ) {
 
-                        // Link immer auf /de/ biegen
+                    // 1. Muss ein Cardmarket-Produktlink sein
+                    val isCmProduct = link.contains("cardmarket.com/", ignoreCase = true) &&
+                            link.contains("/Pokemon/Products/", ignoreCase = true)
+
+                    // 2. KEINE Suchseiten und KEINE Einzelkarten (Singles)
+                    val isSearchOrSingle = link.contains("/Search", ignoreCase = true) ||
+                            link.contains("/Singles/", ignoreCase = true)
+
+                    // 3. KEINE Kategorieseiten wie .../Products/Elite-Trainer-Boxes (muss echten Produktnamen haben!)
+                    val pathAfterProducts = link.substringAfter("/Pokemon/Products/").substringBefore("?")
+                    val hasProductSlug = pathAfterProducts.count { it == '/' } >= 1
+
+                    if (isCmProduct && !isSearchOrSingle && hasProductSlug) {
                         val finalUrl = buildCardmarketUrlWithFilters(link, languageCode)
-
                         logger.info("Serper (Google) found Cardmarket Deep Link: {}", finalUrl)
                         return finalUrl
                     }
