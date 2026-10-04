@@ -71,7 +71,7 @@ class ApiIntegrationTest {
 
     @Test
     fun `happy path - deal feed, device, order and portfolio`() {
-        // 1. Create a seller as admin
+
         val sellerJson = mockMvc.perform(
             post("/api/admin/sellers")
                 .with(asAdmin())

@@ -57,7 +57,7 @@ private fun OrdersRecord.toOrderResponse(items: List<OrderItemResponse>): OrderR
     )
 }
 
-// FIX: productId darf bei Füllartikeln null sein!
+
 private fun toOrderItemResponse(record: OrderItemsRecord): OrderItemResponse {
     val id = checkNotNull(record.id) { "Order item id must not be null" }
     val quantity = record.quantity ?: 1
@@ -97,7 +97,7 @@ class OrderService(private val dsl: DSLContext) {
 
         val createdItems = mutableListOf<OrderItemsRecord>()
 
-        // 1. Normale Pokémon-Artikel anlegen (starten mit Status IN_STOCK)
+
         request.items.forEach { item: OrderItemRequest ->
             val itemRecord = dsl.insertInto(ORDER_ITEMS)
                 .set(ORDER_ITEMS.ORDER_ID, orderRecord.id)
@@ -110,11 +110,11 @@ class OrderService(private val dsl: DSLContext) {
             if (itemRecord != null) createdItems.add(itemRecord)
         }
 
-        // 2. Füllartikel / Beikauf anlegen (falls vorhanden)
+
         if (request.hasFiller && request.fillerCost != null) {
             val fillerRecord = dsl.insertInto(ORDER_ITEMS)
                 .set(ORDER_ITEMS.ORDER_ID, orderRecord.id)
-                .setNull(ORDER_ITEMS.PRODUCT_ID) // kein Katalog-Produkt
+                .setNull(ORDER_ITEMS.PRODUCT_ID)
                 .set(ORDER_ITEMS.QUANTITY, 1)
                 .set(ORDER_ITEMS.STATUS, "IN_STOCK")
                 .set(ORDER_ITEMS.IS_FILLER, true)

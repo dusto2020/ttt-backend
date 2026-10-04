@@ -21,20 +21,20 @@ class PortfolioService(private val dsl: DSLContext) {
     fun computePortfolio(userId: UUID, isAdmin: Boolean): PortfolioDto {
         val condition = if (isAdmin) DSL.trueCondition() else ORDERS.USER_ID.eq(userId)
 
-        // 1. Echtes Geld ausgegeben:
+
         val totalCashPaid = dsl.select(DSL.coalesce(DSL.sum(ORDERS.CASH_PAID), BigDecimal.ZERO))
             .from(ORDERS)
             .where(condition)
             .fetchOne(0, BigDecimal::class.java) ?: BigDecimal.ZERO
 
-        // 2. Echtes PayPal-Cashback erhalten:
+
         val totalPaypalIn = dsl.select(DSL.coalesce(DSL.sum(ORDERS.CLAIMED_AMOUNT), BigDecimal.ZERO))
             .from(ORDERS)
             .where(condition)
             .and(ORDERS.REWARD_TYPE.eq("paypal_cashback"))
             .fetchOne(0, BigDecimal::class.java) ?: BigDecimal.ZERO
 
-        // 3. NEU: Realisierte Verkaufserlöse aus dem Inventar (Status = SOLD):
+
         val totalResales = dsl.select(DSL.coalesce(DSL.sum(ORDER_ITEMS.RESALE_PRICE), BigDecimal.ZERO))
             .from(ORDER_ITEMS)
             .join(ORDERS).on(ORDER_ITEMS.ORDER_ID.eq(ORDERS.ID))
@@ -42,10 +42,10 @@ class PortfolioService(private val dsl: DSLContext) {
             .and(ORDER_ITEMS.STATUS.eq("SOLD"))
             .fetchOne(0, BigDecimal::class.java) ?: BigDecimal.ZERO
 
-        // Gesamtes reales Geld rein = PayPal Cashback + Verkäufe
+
         val totalResaleAndPaypalIn = totalPaypalIn.add(totalResales)
 
-        // 4. Temu Guthaben-Tracking:
+
         val totalCreditUsed = dsl.select(DSL.coalesce(DSL.sum(ORDERS.CREDIT_USED), BigDecimal.ZERO))
             .from(ORDERS)
             .where(condition)

@@ -14,7 +14,7 @@ data class InventoryItemResponse(
     val countryCode: String,
     val isFiller: Boolean,
     val fillerCost: BigDecimal?,
-    val status: String, // IN_STOCK, SOLD, KEPT
+    val status: String,
     val liveCardmarketPrice: BigDecimal?,
     val marketPriceSnapshot: BigDecimal?,
     val resalePrice: BigDecimal?,

@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController
 class AdminProductController(
     private val productService: ProductService,
     private val cardmarketPriceSyncScheduler: CardmarketPriceSyncScheduler,
-    private val sellerService: SellerService, // <-- FIX 1: Hier injizieren!
+    private val sellerService: SellerService,
 ) {
 
     @GetMapping
@@ -53,8 +53,8 @@ class AdminProductController(
                 temuPrice = body.temuPrice,
                 isActive = body.isActive,
                 manualPriceOverride = body.manualPriceOverride,
-                temuProductUrl = body.temuProductUrl, // <-- FIX: mitübergeben
-                sellerId = body.sellerId,             // <-- FIX: mitübergeben
+                temuProductUrl = body.temuProductUrl,
+                sellerId = body.sellerId,
             ).toResponse(),
         )
     }
@@ -76,8 +76,8 @@ class AdminProductController(
             temuPrice = body.temuPrice,
             isActive = body.isActive,
             manualPriceOverride = body.manualPriceOverride,
-            temuProductUrl = body.temuProductUrl, // <-- FIX: mitübergeben
-            sellerId = body.sellerId,             // <-- FIX: mitübergeben
+            temuProductUrl = body.temuProductUrl,
+            sellerId = body.sellerId,
         ) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(updated.toResponse())
     }
@@ -123,25 +123,25 @@ class AdminProductController(
         val temuPrice = BigDecimal(body.goodsInfo.priceInfo.price)
             .divide(BigDecimal(100), 2, java.math.RoundingMode.HALF_UP)
 
-        // 1. Sprache dynamisch erkennen
+
         val languageCode = detectLanguage(rawTitle, body.productUrl ?: "")
 
-        // 2. Land DYNAMISCH erkennen (aus Userscript, Seller-DB oder URL)
+
         val countryCode = body.countryCode
             ?: detectCountryFromSellerDb(body.goodsInfo.mallId)
             ?: detectCountryFromUrl(body.productUrl ?: body.shortLink)
 
-        // 3. Händler VOLLAUTOMATISCH matchen
+
         val matchedSeller = findSellerByMallId(body.goodsInfo.mallId, countryCode)
 
-        // 4. Titel säubern
+
         val cleanName = cleanPokemonTitle(rawTitle, languageCode)
 
-        // 5. Cardmarket-Suchlink vorbereiten
+
         val cmSearchQuery = java.net.URLEncoder.encode(cleanName.replace(Regex("^\\[(DE|EN|JP)\\]\\s*"), ""), "UTF-8")
         val cmUrl = "https://www.cardmarket.com/de/Pokemon/Products/Search?searchString=$cmSearchQuery"
 
-        // 6. In Datenbank anlegen (inkl. sellerId & temuProductUrl!)
+
         val created = productService.create(
             name = cleanName,
             languageCode = languageCode,
@@ -161,11 +161,11 @@ class AdminProductController(
         val mallIdStr = mallId.toString()
         val allSellers = sellerService.findAll().map { it.toResponse() }
 
-        // 1. Suche nach hinterlegter Store-URL mit dieser Mall-ID
+
         val byUrl = allSellers.firstOrNull { it.storeUrl?.contains(mallIdStr) == true }
         if (byUrl != null) return byUrl
 
-        // 2. Fallback: Heartforcards für das passende Land finden
+
         return allSellers.firstOrNull {
             it.name.contains("Heartforcards", ignoreCase = true) && it.countryCode == country
         }
@@ -193,59 +193,59 @@ class AdminProductController(
         val combined = "$titleLower ${url.lowercase()}"
 
         return when {
-            // 1. Japanisch
+
             combined.contains("japanese") ||
                     combined.contains("japanisch") ||
                     combined.contains("japan") ||
                     Regex("\\b(jp|jap)\\b").containsMatchIn(titleLower) -> LanguageCode.JP
 
-            // 2. Deutsch
+
             combined.contains("deutsch") ||
                     combined.contains("german") ||
                     combined.contains("top-trainer-box") ||
                     Regex("\\bde\\b").containsMatchIn(titleLower) -> LanguageCode.DE
 
-            // 3. Englisch (Explizit)
+
             combined.contains("english") ||
                     combined.contains("englisch") ||
                     Regex("\\ben\\b").containsMatchIn(titleLower) -> LanguageCode.EN
 
-            // Default Fallback
+
             else -> LanguageCode.EN
         }
     }
 
     private fun cleanPokemonTitle(raw: String, lang: LanguageCode): String {
         var cleaned = raw
-            // 1. Franchise & TCG-Müll ("Original Pokémon TCG:", "Pokemon Trading Card Game")
+
             .replace(Regex("(?i)(Original\\s*)?Pok[eé]mon\\s*(TCG|Trading Card Game|Trading Cards|Sammelkartenspiel|Sammelkarten)?:?\\s*"), "")
 
-            // 2. SEO-Spam Wörter
+
             .replace(Regex("(?i)\\b(Trading Cards?|Trading Card Game|Sammelkarten(spiel)?|Spielzeug|Geschenk(idee)?|Toys?|Gifts?|Original|Authentic)\\b"), "")
 
-            // 3. Zustandsbeschreibungen
+
             .replace(Regex("(?i)\\b(Sealed|OVP|Neu|New|Factory)\\b"), "")
 
-            // 4. Sprachen als Wort (werden ja eh durch [DE]/[EN] ersetzt)
+
             .replace(Regex("(?i)\\b(Deutsch|German|Englisch|English|Japanisch|Japanese)\\b"), "")
 
-            // 5. Sprach-Abkürzungen wie [DE], (EN), - JP
+
             .replace(Regex("(?i)[\\[\\(]?(DE|EN|JP|GER|ENG|JAP)[\\]\\)]?\\b"), "")
 
-            // 6. Typische Temu Suffixe
+
             .replace(Regex("(?i)[–-]\\s*Collector.*"), "")
             .replace(Regex("(?i)[–-]\\s*Playset.*"), "")
-            // .replace(Regex("(?i)[–-]\\s*\\d+\\s*Boosters?.*"), "") // Z.B. "- 9 Boosters" oder "– 36 Booster"
 
-        // 7. Aufräumen (entfernt doppelte Leerzeichen und übrig gebliebene Bindestriche am Anfang/Ende)
+
+
         cleaned = cleaned
             .replace(Regex("\\s{2,}"), " ")
             .replace(Regex("^[\\s\\-–|]+|[\\s\\-–|]+$"), "")
             .trim()
 
-        // Da wir das Wort "Pokémon" oben komplett entfernt haben für saubere Titel,
-        // kannst du entscheiden, ob du es hier wieder fest einbauen willst:
-        // z.B. return "[${lang.wireName}] Pokémon $cleaned"
+
+
+
         return "[${lang.wireName}] $cleaned"
     }
 }

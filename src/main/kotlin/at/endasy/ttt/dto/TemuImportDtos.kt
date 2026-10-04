@@ -11,7 +11,7 @@ data class TemuImportRequest(
     @JsonProperty("short_link")
     val shortLink: String,
     @JsonProperty("product_url")
-    val productUrl: String? = null, // <-- NEU
+    val productUrl: String? = null,
     @JsonProperty("country_code")
     val countryCode: CountryCode? = null,
 )
@@ -31,6 +31,6 @@ data class TemuGoodsInfo(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class TemuPriceInfo(
-    val price: Long, // in Cent, z. B. 23310 = 233.10 €
+    val price: Long,
     val currency: String = "EUR",
 )

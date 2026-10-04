@@ -86,15 +86,15 @@ class CardmarketScraperService(
                 for (item in organicArray) {
                     val link = item.path("link").asText("")
 
-                    // 1. Muss ein Cardmarket-Produktlink sein
+
                     val isCmProduct = link.contains("cardmarket.com/", ignoreCase = true) &&
                             link.contains("/Pokemon/Products/", ignoreCase = true)
 
-                    // 2. KEINE Suchseiten und KEINE Einzelkarten (Singles)
+
                     val isSearchOrSingle = link.contains("/Search", ignoreCase = true) ||
                             link.contains("/Singles/", ignoreCase = true)
 
-                    // 3. KEINE Kategorieseiten wie .../Products/Elite-Trainer-Boxes (muss echten Produktnamen haben!)
+
                     val pathAfterProducts = link.substringAfter("/Pokemon/Products/").substringBefore("?")
                     val hasProductSlug = pathAfterProducts.count { it == '/' } >= 1
 
@@ -118,7 +118,7 @@ class CardmarketScraperService(
      * Extrahiert den deutschen Titel aus dem <h1> und ignoriert Suchseiten
      */
     private fun extractGermanTitle(document: Document, url: String): String? {
-        // NIEMALS Titel von Suchergebnisseiten übernehmen!
+
         if (url.contains("/Search", ignoreCase = true)) return null
 
         val h1 = document.selectFirst(".page-title-container h1")
@@ -130,7 +130,7 @@ class CardmarketScraperService(
 
         val cleanTitle = h1Clone.text().trim()
 
-        // Sicherheitsprüfung gegen Cardmarket-Suchseiten
+
         if (cleanTitle.equals("Suchergebnisse", ignoreCase = true) ||
             cleanTitle.equals("Search Results", ignoreCase = true) ||
             cleanTitle.isBlank()
@@ -149,7 +149,7 @@ class CardmarketScraperService(
         var targetUrl = url?.trim().orEmpty()
         var resolvedDeepLink: String? = null
 
-        // 1. WENN DER LINK LEER IST ODER EIN SUCHLINK -> Über Google (Serper) suchen!
+
         if (targetUrl.isBlank() || targetUrl.contains("/Search", ignoreCase = true)) {
             val queryFromUrl = if (targetUrl.contains("searchString=")) {
                 java.net.URLDecoder.decode(targetUrl.substringAfter("searchString=").substringBefore("&"), "UTF-8")
@@ -175,7 +175,7 @@ class CardmarketScraperService(
         }
 
         return try {
-            // Exakte Sprach- und Länderfilter anfügen
+
             targetUrl = buildCardmarketUrlWithFilters(targetUrl, languageCode)
             resolvedDeepLink = targetUrl
 
@@ -184,10 +184,10 @@ class CardmarketScraperService(
             val html = fetchHtmlViaFlareSolverr(targetUrl) ?: return null
             val document = Jsoup.parse(html)
 
-            // 1. Deutschen Titel aus dem h1 extrahieren
+
             val germanTitle = extractGermanTitle(document, targetUrl)
 
-            // 2. Preis ermitteln
+
             val price = extractPriceFromInfoList(document, listOf("Ab", "From"))
                 ?: extractPriceFromFirstArticleRow(document)
                 ?: extractPriceFromInfoList(document, listOf("Preistrend", "Price Trend"))
@@ -273,7 +273,7 @@ class CardmarketScraperService(
         val langId = when (languageCode?.uppercase()) {
             "DE" -> 3
             "JP" -> 7
-            else -> 1 // Standard: Englisch
+            else -> 1
         }
         val baseUrl = url.substringBefore("?")
             .replace(Regex("/(en|fr|es|it)/Pokemon/"), "/de/Pokemon/")
@@ -293,15 +293,15 @@ class CardmarketScraperService(
             val html = fetchHtmlViaFlareSolverr(productUrl) ?: return null
             val doc = Jsoup.parse(html)
 
-            // 1. Suche den Container mit der festen ID aus deinem Screenshot
+
             val goodsPriceDiv = doc.selectFirst("#goods_price") ?: doc.selectFirst("[class*=\"goods_price\"]")
 
             val rawText = if (goodsPriceDiv != null) {
-                // Erstes <span> enthält das vollständige "€275.09"
+
                 val span = goodsPriceDiv.selectFirst("span")
                 span?.text() ?: goodsPriceDiv.text()
             } else {
-                // Fallback: Schema.org JSON-LD
+
                 doc.select("meta[property=\"og:price:amount\"]").attr("content")
             }
 

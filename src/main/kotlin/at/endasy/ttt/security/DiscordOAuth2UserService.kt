@@ -23,7 +23,7 @@ import org.springframework.web.client.RestClientException
 class DiscordOAuth2UserService(
     private val discordProperties: DiscordProperties,
     private val userService: UserService,
-    private val whitelistService: WhitelistService, // <-- HIER INJIZIERT
+    private val whitelistService: WhitelistService,
 ) : OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private val logger = LoggerFactory.getLogger(DiscordOAuth2UserService::class.java)
@@ -34,7 +34,7 @@ class DiscordOAuth2UserService(
         val oAuth2User = delegate.loadUser(userRequest)
         val accessToken = userRequest.accessToken.tokenValue
 
-        // 1. TeamRestocks Server-Zugehörigkeit prüfen
+
         val guilds = try {
             restClient.get()
                 .uri("https://discord.com/api/users/@me/guilds")
@@ -61,7 +61,7 @@ class DiscordOAuth2UserService(
             )
         }
 
-        // 2. User-Daten von Discord extrahieren
+
         val discordId = oAuth2User.getAttribute<String>("id")
             ?: throw OAuth2AuthenticationException(OAuth2Error("invalid_user", "Missing Discord user id", null))
         val username = oAuth2User.getAttribute<String>("username") ?: discordId
@@ -71,7 +71,7 @@ class DiscordOAuth2UserService(
         val userRecord = userService.upsertDiscordUser(discordId, username, avatarUrl)
         val isAdmin = userRecord.isAdmin ?: false
 
-        // 3. WHITELIST-CHECK: Admins dürfen immer rein, normale User brauchen Whitelist-Eintrag
+
         val isWhitelisted = whitelistService.isWhitelisted(discordId)
 
         if (!isAdmin && !isWhitelisted) {

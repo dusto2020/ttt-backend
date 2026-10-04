@@ -5,11 +5,11 @@ import java.math.RoundingMode
 import org.springframework.stereotype.Service
 
 enum class DealTier(val label: String, val color: String) {
-    TOP_DEAL("Hervorragend", "#00F076"),       // < 15% Markup
-    STRONG("Sehr lohnenswert", "#00C853"),     // 15% - 28%
-    SOLID("Solide", "#FFB300"),                // 28% - 42%
-    LOW_MARGIN("Geringe Marge", "#FF8A00"),     // 42% - 55%
-    UNPROFITABLE("Unrentabel", "#94A3B8"),     // > 55%
+    TOP_DEAL("Hervorragend", "#00F076"),
+    STRONG("Sehr lohnenswert", "#00C853"),
+    SOLID("Solide", "#FFB300"),
+    LOW_MARGIN("Geringe Marge", "#FF8A00"),
+    UNPROFITABLE("Unrentabel", "#94A3B8"),
 }
 
 data class PaypalCashbackResult(

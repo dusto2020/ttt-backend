@@ -41,10 +41,10 @@ class CardmarketPriceSyncScheduler(
         val product = dsl.selectFrom(PRODUCTS).where(PRODUCTS.ID.eq(productId)).fetchOne() ?: return
         val targetUrl = url ?: product.cardmarketUrl ?: ""
 
-        // 1. Cardmarket abfragen (Preis, deutscher Titel & Deeplink)
+
         val cmResult = scraperService.fetchLowestPrice(targetUrl, product.name, product.languageCode)
 
-        // 2. Temu Live-Preis abfragen (über den echten Direktlink #goods_price)
+
         val temuUrl = product.temuProductUrl
         val newTemuPrice = if (!temuUrl.isNullOrBlank()) {
             scraperService.fetchTemuPrice(temuUrl)
@@ -52,7 +52,7 @@ class CardmarketPriceSyncScheduler(
             null
         }
 
-        // Falls weder Cardmarket noch Temu Daten liefern konnten, breche ab
+
         if (cmResult == null && newTemuPrice == null) {
             logger.warn("Weder Cardmarket noch Temu konnten für Produkt '{}' aktualisiert werden.", product.name)
             return
@@ -61,7 +61,7 @@ class CardmarketPriceSyncScheduler(
         var updateQuery = dsl.update(PRODUCTS)
             .set(PRODUCTS.UPDATED_AT, java.time.OffsetDateTime.ofInstant(Instant.now(), java.time.ZoneOffset.UTC))
 
-        // Cardmarket-Felder setzen
+
         if (cmResult != null) {
             updateQuery = updateQuery.set(
                 PRODUCTS.CARDMARKET_UPDATED_AT,
@@ -78,7 +78,7 @@ class CardmarketPriceSyncScheduler(
             }
         }
 
-        // Temu-Kaufpreis aktualisieren (falls sich der Preis auf Temu geändert hat)
+
         if (newTemuPrice != null) {
             updateQuery = updateQuery.set(PRODUCTS.TEMU_PRICE, newTemuPrice)
             logger.info("Temu-Kaufpreis für '{}' auf {} € aktualisiert.", product.name, newTemuPrice)
