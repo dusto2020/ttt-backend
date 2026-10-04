@@ -3,7 +3,6 @@ package at.endasy.ttt.controller
 import at.endasy.ttt.dto.CreateOrderRequest
 import at.endasy.ttt.dto.UpdateClaimRequest
 import at.endasy.ttt.security.TttOAuth2User
-import at.endasy.ttt.security.requireAuth
 import at.endasy.ttt.service.OrderService
 import java.util.UUID
 import org.springframework.http.ResponseEntity
@@ -22,40 +21,35 @@ import org.springframework.web.bind.annotation.RestController
 class OrderController(private val orderService: OrderService) {
 
     @GetMapping
-    fun list(@AuthenticationPrincipal principal: TttOAuth2User?): ResponseEntity<Any> {
-        requireAuth(principal)?.let { return it }
-        return ResponseEntity.ok(orderService.findOrders(principal!!.userId, principal.isAdmin))
+    fun list(@AuthenticationPrincipal principal: TttOAuth2User): ResponseEntity<Any> {
+        return ResponseEntity.ok(orderService.findOrders(principal.userId, principal.isAdmin))
     }
 
     @GetMapping("/{id}")
-    fun get(@AuthenticationPrincipal principal: TttOAuth2User?, @PathVariable id: UUID): ResponseEntity<Any> {
-        requireAuth(principal)?.let { return it }
-        val order = orderService.findOrderForUser(id, principal!!.userId, principal.isAdmin)
+    fun get(@AuthenticationPrincipal principal: TttOAuth2User, @PathVariable id: UUID): ResponseEntity<Any> {
+        val order = orderService.findOrderForUser(id, principal.userId, principal.isAdmin)
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(order)
     }
 
     @PostMapping
-    fun create(@AuthenticationPrincipal principal: TttOAuth2User?, @RequestBody body: CreateOrderRequest): ResponseEntity<Any> {
-        requireAuth(principal)?.let { return it }
-        return ResponseEntity.ok(orderService.createOrder(principal!!.userId, body))
+    fun create(@AuthenticationPrincipal principal: TttOAuth2User, @RequestBody body: CreateOrderRequest): ResponseEntity<Any> {
+        return ResponseEntity.ok(orderService.createOrder(principal.userId, body))
     }
 
     @DeleteMapping("/{id}")
-    fun delete(@AuthenticationPrincipal principal: TttOAuth2User?, @PathVariable id: UUID): ResponseEntity<Any> {
-        requireAuth(principal)?.let { return it }
-        val deleted = orderService.deleteOrder(id, principal!!.userId, principal.isAdmin)
+    fun delete(@AuthenticationPrincipal principal: TttOAuth2User, @PathVariable id: UUID): ResponseEntity<Any> {
+        val deleted = orderService.deleteOrder(id, principal.userId, principal.isAdmin)
         return if (deleted > 0) ResponseEntity.noContent().build() else ResponseEntity.notFound().build()
     }
 
     @PatchMapping("/{id}/claim")
     fun updateClaim(
-        @AuthenticationPrincipal principal: TttOAuth2User?,
+        @AuthenticationPrincipal principal: TttOAuth2User,
         @PathVariable id: UUID,
         @RequestBody body: UpdateClaimRequest,
     ): ResponseEntity<Any> {
-        requireAuth(principal)?.let { return it }
-        val updated = orderService.updateClaimStatus(id, principal!!.userId, principal.isAdmin, body.isFullyClaimed, body.claimedAmount)
+        val updated = orderService.updateClaimStatus(id, principal.userId, principal.isAdmin, body.isFullyClaimed, body.claimedAmount)
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(updated)
     }

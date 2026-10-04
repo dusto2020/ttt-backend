@@ -141,6 +141,7 @@ class ApiIntegrationTest {
                             "sellerId" to sellerId,
                             "orderSn" to "SN-12345",
                             "eventType" to "claimcredit",
+                            "rewardType" to "temu_credit",
                             "cashPaid" to 30.00,
                             "creditUsed" to 70.00,
                             "totalReturn" to 90.00,

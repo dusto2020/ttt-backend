@@ -4,12 +4,58 @@ import at.endasy.ttt.dto.CreateOrderRequest
 import at.endasy.ttt.dto.OrderItemRequest
 import at.endasy.ttt.dto.OrderItemResponse
 import at.endasy.ttt.dto.OrderResponse
+import at.endasy.ttt.model.EventType
+import at.endasy.ttt.model.RewardType
+import com.teamrestocks.ttt.jooq.tables.records.OrdersRecord
 import com.teamrestocks.ttt.jooq.tables.references.ORDERS
 import com.teamrestocks.ttt.jooq.tables.references.ORDER_ITEMS
 import java.util.UUID
 import org.jooq.DSLContext
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+
+private fun OrdersRecord.toOrderResponse(items: List<OrderItemResponse>): OrderResponse {
+    val id = checkNotNull(id) { "Order id must not be null" }
+    val userId = checkNotNull(userId) { "Order $id has no user_id" }
+    val orderSn = checkNotNull(orderSn) { "Order $id has no order_sn" }
+    val eventTypeWire = checkNotNull(eventType) { "Order $id has no event_type" }
+    val rewardTypeWire = checkNotNull(rewardType) { "Order $id has no reward_type" }
+    val eventType = checkNotNull(EventType.entries.find { it.wireName == eventTypeWire }) {
+        "Order $id has unknown event_type '$eventTypeWire'"
+    }
+    val rewardType = checkNotNull(RewardType.entries.find { it.wireName == rewardTypeWire }) {
+        "Order $id has unknown reward_type '$rewardTypeWire'"
+    }
+    val cashPaid = checkNotNull(cashPaid) { "Order $id has no cash_paid" }
+    val creditUsed = checkNotNull(creditUsed) { "Order $id has no credit_used" }
+    val totalReturn = checkNotNull(totalReturn) { "Order $id has no total_return" }
+    val claimedAmount = checkNotNull(claimedAmount) { "Order $id has no claimed_amount" }
+
+    return OrderResponse(
+        id = id,
+        userId = userId,
+        deviceId = deviceId,
+        sellerId = sellerId,
+        orderSn = orderSn,
+        eventType = eventType,
+        rewardType = rewardType,
+        cashPaid = cashPaid,
+        creditUsed = creditUsed,
+        totalReturn = totalReturn,
+        claimedAmount = claimedAmount,
+        isFullyClaimed = isFullyClaimed ?: false,
+        orderDate = orderDate,
+        createdAt = createdAt,
+        items = items,
+    )
+}
+
+private fun toOrderItemResponse(record: com.teamrestocks.ttt.jooq.tables.records.OrderItemsRecord): OrderItemResponse {
+    val id = checkNotNull(record.id) { "Order item id must not be null" }
+    val productId = checkNotNull(record.productId) { "Order item $id has no product_id" }
+    val quantity = checkNotNull(record.quantity) { "Order item $id has no quantity" }
+    return OrderItemResponse(id, productId, quantity)
+}
 
 @Service
 class OrderService(private val dsl: DSLContext) {
@@ -21,7 +67,8 @@ class OrderService(private val dsl: DSLContext) {
             .set(ORDERS.DEVICE_ID, request.deviceId)
             .set(ORDERS.SELLER_ID, request.sellerId)
             .set(ORDERS.ORDER_SN, request.orderSn)
-            .set(ORDERS.EVENT_TYPE, request.eventType)
+            .set(ORDERS.EVENT_TYPE, request.eventType.wireName)
+            .set(ORDERS.REWARD_TYPE, request.rewardType.wireName)
             .set(ORDERS.CASH_PAID, request.cashPaid)
             .set(ORDERS.CREDIT_USED, request.creditUsed)
             .set(ORDERS.TOTAL_RETURN, request.totalReturn)
@@ -29,7 +76,9 @@ class OrderService(private val dsl: DSLContext) {
             .set(ORDERS.IS_FULLY_CLAIMED, request.isFullyClaimed)
             .apply { request.orderDate?.let { set(ORDERS.ORDER_DATE, it) } }
             .returning()
-            .fetchOne()!!
+            .fetchOne()
+
+        checkNotNull(orderRecord) { "Failed to insert order ${request.orderSn}" }
 
         val itemResponses = request.items.map { item: OrderItemRequest ->
             val itemRecord = dsl.insertInto(ORDER_ITEMS)
@@ -37,26 +86,12 @@ class OrderService(private val dsl: DSLContext) {
                 .set(ORDER_ITEMS.PRODUCT_ID, item.productId)
                 .set(ORDER_ITEMS.QUANTITY, item.quantity)
                 .returning()
-                .fetchOne()!!
-            OrderItemResponse(itemRecord.id!!, itemRecord.productId!!, itemRecord.quantity!!)
+                .fetchOne()
+            checkNotNull(itemRecord) { "Failed to insert order item for product ${item.productId}" }
+            toOrderItemResponse(itemRecord)
         }
 
-        return OrderResponse(
-            id = orderRecord.id!!,
-            userId = orderRecord.userId!!,
-            deviceId = orderRecord.deviceId,
-            sellerId = orderRecord.sellerId,
-            orderSn = orderRecord.orderSn!!,
-            eventType = orderRecord.eventType,
-            cashPaid = orderRecord.cashPaid!!,
-            creditUsed = orderRecord.creditUsed!!,
-            totalReturn = orderRecord.totalReturn!!,
-            claimedAmount = orderRecord.claimedAmount!!,
-            isFullyClaimed = orderRecord.isFullyClaimed ?: false,
-            orderDate = orderRecord.orderDate,
-            createdAt = orderRecord.createdAt,
-            items = itemResponses,
-        )
+        return orderRecord.toOrderResponse(itemResponses)
     }
 
     fun findOrders(userId: UUID, isAdmin: Boolean): List<OrderResponse> {
@@ -69,24 +104,9 @@ class OrderService(private val dsl: DSLContext) {
             val items = dsl.selectFrom(ORDER_ITEMS)
                 .where(ORDER_ITEMS.ORDER_ID.eq(order.id))
                 .fetch()
-                .map { OrderItemResponse(it.id!!, it.productId!!, it.quantity!!) }
+                .map { toOrderItemResponse(it) }
 
-            OrderResponse(
-                id = order.id!!,
-                userId = order.userId!!,
-                deviceId = order.deviceId,
-                sellerId = order.sellerId,
-                orderSn = order.orderSn!!,
-                eventType = order.eventType,
-                cashPaid = order.cashPaid!!,
-                creditUsed = order.creditUsed!!,
-                totalReturn = order.totalReturn!!,
-                claimedAmount = order.claimedAmount!!,
-                isFullyClaimed = order.isFullyClaimed ?: false,
-                orderDate = order.orderDate,
-                createdAt = order.createdAt,
-                items = items,
-            )
+            order.toOrderResponse(items)
         }
     }
 
@@ -99,24 +119,9 @@ class OrderService(private val dsl: DSLContext) {
         val items = dsl.selectFrom(ORDER_ITEMS)
             .where(ORDER_ITEMS.ORDER_ID.eq(order.id))
             .fetch()
-            .map { OrderItemResponse(it.id!!, it.productId!!, it.quantity!!) }
+            .map { toOrderItemResponse(it) }
 
-        return OrderResponse(
-            id = order.id!!,
-            userId = order.userId!!,
-            deviceId = order.deviceId,
-            sellerId = order.sellerId,
-            orderSn = order.orderSn!!,
-            eventType = order.eventType,
-            cashPaid = order.cashPaid!!,
-            creditUsed = order.creditUsed!!,
-            totalReturn = order.totalReturn!!,
-            claimedAmount = order.claimedAmount!!,
-            isFullyClaimed = order.isFullyClaimed ?: false,
-            orderDate = order.orderDate,
-            createdAt = order.createdAt,
-            items = items,
-        )
+        return order.toOrderResponse(items)
     }
 
     fun deleteOrder(id: UUID, userId: UUID, isAdmin: Boolean): Int =
@@ -138,23 +143,8 @@ class OrderService(private val dsl: DSLContext) {
         val items = dsl.selectFrom(ORDER_ITEMS)
             .where(ORDER_ITEMS.ORDER_ID.eq(updated.id))
             .fetch()
-            .map { OrderItemResponse(it.id!!, it.productId!!, it.quantity!!) }
+            .map { toOrderItemResponse(it) }
 
-        return OrderResponse(
-            id = updated.id!!,
-            userId = updated.userId!!,
-            deviceId = updated.deviceId,
-            sellerId = updated.sellerId,
-            orderSn = updated.orderSn!!,
-            eventType = updated.eventType,
-            cashPaid = updated.cashPaid!!,
-            creditUsed = updated.creditUsed!!,
-            totalReturn = updated.totalReturn!!,
-            claimedAmount = updated.claimedAmount!!,
-            isFullyClaimed = updated.isFullyClaimed ?: false,
-            orderDate = updated.orderDate,
-            createdAt = updated.createdAt,
-            items = items,
-        )
+        return updated.toOrderResponse(items)
     }
 }

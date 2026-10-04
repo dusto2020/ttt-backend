@@ -1,5 +1,7 @@
 package at.endasy.ttt.dto
 
+import at.endasy.ttt.model.EventType
+import at.endasy.ttt.model.RewardType
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -14,7 +16,8 @@ data class CreateOrderRequest(
     val deviceId: UUID?,
     val sellerId: UUID?,
     val orderSn: String,
-    val eventType: String,
+    val eventType: EventType,
+    val rewardType: RewardType,
     val cashPaid: BigDecimal = BigDecimal.ZERO,
     val creditUsed: BigDecimal = BigDecimal.ZERO,
     val totalReturn: BigDecimal,
@@ -41,7 +44,8 @@ data class OrderResponse(
     val deviceId: UUID?,
     val sellerId: UUID?,
     val orderSn: String,
-    val eventType: String?,
+    val eventType: EventType,
+    val rewardType: RewardType,
     val cashPaid: BigDecimal,
     val creditUsed: BigDecimal,
     val totalReturn: BigDecimal,

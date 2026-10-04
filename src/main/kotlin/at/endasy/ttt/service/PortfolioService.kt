@@ -28,7 +28,7 @@ class PortfolioService(private val dsl: DSLContext) {
         val totalResaleAndPaypalIn = dsl.select(DSL.coalesce(DSL.sum(ORDERS.CLAIMED_AMOUNT), BigDecimal.ZERO))
             .from(ORDERS)
             .where(condition)
-            .and(ORDERS.EVENT_TYPE.eq("paypal_cashback"))
+            .and(ORDERS.REWARD_TYPE.eq("paypal_cashback"))
             .fetchOne(0, BigDecimal::class.java) ?: BigDecimal.ZERO
 
         val totalCreditUsed = dsl.select(DSL.coalesce(DSL.sum(ORDERS.CREDIT_USED), BigDecimal.ZERO))
@@ -39,7 +39,7 @@ class PortfolioService(private val dsl: DSLContext) {
         val totalCreditReturned = dsl.select(DSL.coalesce(DSL.sum(ORDERS.CLAIMED_AMOUNT), BigDecimal.ZERO))
             .from(ORDERS)
             .where(condition)
-            .and(ORDERS.EVENT_TYPE.`in`("claimcredit", "wincredit"))
+            .and(ORDERS.REWARD_TYPE.eq("temu_credit"))
             .fetchOne(0, BigDecimal::class.java) ?: BigDecimal.ZERO
 
         val netCashPosition = totalResaleAndPaypalIn.subtract(totalCashPaid)
