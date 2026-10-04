@@ -9,6 +9,8 @@ import at.endasy.ttt.security.TttOAuth2User
 import at.endasy.ttt.security.requireAdmin
 import at.endasy.ttt.service.CardmarketPriceSyncScheduler
 import at.endasy.ttt.service.ProductService
+import at.endasy.ttt.service.SellerService
+import java.math.BigDecimal
 import java.util.UUID
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -20,13 +22,13 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.math.BigDecimal
 
 @RestController
 @RequestMapping("/api/admin/products")
 class AdminProductController(
     private val productService: ProductService,
     private val cardmarketPriceSyncScheduler: CardmarketPriceSyncScheduler,
+    private val sellerService: SellerService, // <-- FIX 1: Hier injizieren!
 ) {
 
     @GetMapping
@@ -43,14 +45,16 @@ class AdminProductController(
         requireAdmin(principal)?.let { return it }
         return ResponseEntity.ok(
             productService.create(
-                body.name,
-                body.languageCode,
-                body.countryCode,
-                body.temuAffiliateUrl,
-                body.cardmarketUrl,
-                body.temuPrice,
-                body.isActive,
-                body.manualPriceOverride,
+                name = body.name,
+                languageCode = body.languageCode,
+                countryCode = body.countryCode,
+                temuAffiliateUrl = body.temuAffiliateUrl,
+                cardmarketUrl = body.cardmarketUrl,
+                temuPrice = body.temuPrice,
+                isActive = body.isActive,
+                manualPriceOverride = body.manualPriceOverride,
+                temuProductUrl = body.temuProductUrl, // <-- FIX: mitübergeben
+                sellerId = body.sellerId,             // <-- FIX: mitübergeben
             ).toResponse(),
         )
     }
@@ -63,15 +67,17 @@ class AdminProductController(
     ): ResponseEntity<Any> {
         requireAdmin(principal)?.let { return it }
         val updated = productService.update(
-            id,
-            body.name,
-            body.languageCode,
-            body.countryCode,
-            body.temuAffiliateUrl,
-            body.cardmarketUrl,
-            body.temuPrice,
-            body.isActive,
-            body.manualPriceOverride,
+            id = id,
+            name = body.name,
+            languageCode = body.languageCode,
+            countryCode = body.countryCode,
+            temuAffiliateUrl = body.temuAffiliateUrl,
+            cardmarketUrl = body.cardmarketUrl,
+            temuPrice = body.temuPrice,
+            isActive = body.isActive,
+            manualPriceOverride = body.manualPriceOverride,
+            temuProductUrl = body.temuProductUrl, // <-- FIX: mitübergeben
+            sellerId = body.sellerId,             // <-- FIX: mitübergeben
         ) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(updated.toResponse())
     }
@@ -84,7 +90,10 @@ class AdminProductController(
     }
 
     @PostMapping("/{id}/sync-cm")
-    fun syncCardmarket(@AuthenticationPrincipal principal: TttOAuth2User?, @PathVariable id: UUID): ResponseEntity<Any> {
+    fun syncCardmarket(
+        @AuthenticationPrincipal principal: TttOAuth2User?,
+        @PathVariable id: UUID
+    ): ResponseEntity<Any> {
         requireAdmin(principal)?.let { return it }
         val product = productService.findById(id) ?: return ResponseEntity.notFound().build()
 
@@ -97,7 +106,6 @@ class AdminProductController(
     @PostMapping("/sync-all-cm")
     fun syncAllCardmarket(@AuthenticationPrincipal principal: TttOAuth2User?): ResponseEntity<Any> {
         requireAdmin(principal)?.let { return it }
-        // Startet den Scheduler asynchron im Hintergrund
         Thread {
             cardmarketPriceSyncScheduler.syncPrices()
         }.start()
@@ -115,34 +123,25 @@ class AdminProductController(
         val temuPrice = BigDecimal(body.goodsInfo.priceInfo.price)
             .divide(BigDecimal(100), 2, java.math.RoundingMode.HALF_UP)
 
-        // 1. Sprache erkennen
-        val languageCode = when {
-            rawTitle.contains("Deutsch", ignoreCase = true) ||
-                    rawTitle.contains("German", ignoreCase = true) ||
-                    rawTitle.contains("Top-Trainer-Box", ignoreCase = true) -> LanguageCode.DE
+        // 1. Sprache dynamisch erkennen
+        val languageCode = detectLanguage(rawTitle, body.productUrl ?: "")
 
-            rawTitle.contains("Japanisch", ignoreCase = true) ||
-                    rawTitle.contains("Japanese", ignoreCase = true) ||
-                    rawTitle.contains("Japan", ignoreCase = true) -> LanguageCode.JP
+        // 2. Land DYNAMISCH erkennen (aus Userscript, Seller-DB oder URL)
+        val countryCode = body.countryCode
+            ?: detectCountryFromSellerDb(body.goodsInfo.mallId)
+            ?: detectCountryFromUrl(body.productUrl ?: body.shortLink)
 
-            else -> LanguageCode.EN
-        }
+        // 3. Händler VOLLAUTOMATISCH matchen
+        val matchedSeller = findSellerByMallId(body.goodsInfo.mallId, countryCode)
 
-        // 2. Land erkennen (Heartforcards Mall ID 670702094624648 = AT)
-        val countryCode = if (body.goodsInfo.mallId == 670702094624648L) {
-            CountryCode.AT
-        } else {
-            CountryCode.DE
-        }
-
-        // 3. Titel säubern
+        // 4. Titel säubern
         val cleanName = cleanPokemonTitle(rawTitle, languageCode)
 
-        // 4. Cardmarket-Suchlink vorbereiten (als Basis)
+        // 5. Cardmarket-Suchlink vorbereiten
         val cmSearchQuery = java.net.URLEncoder.encode(cleanName.replace(Regex("^\\[(DE|EN|JP)\\]\\s*"), ""), "UTF-8")
-        val cmUrl = "https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=$cmSearchQuery"
+        val cmUrl = "https://www.cardmarket.com/de/Pokemon/Products/Search?searchString=$cmSearchQuery"
 
-        // 5. In Datenbank anlegen
+        // 6. In Datenbank anlegen (inkl. sellerId & temuProductUrl!)
         val created = productService.create(
             name = cleanName,
             languageCode = languageCode,
@@ -152,13 +151,59 @@ class AdminProductController(
             temuPrice = temuPrice,
             isActive = true,
             temuProductUrl = body.productUrl,
+            sellerId = matchedSeller?.id,
         )
 
         return ResponseEntity.ok(created.toResponse())
     }
 
+    private fun findSellerByMallId(mallId: Long, country: CountryCode): at.endasy.ttt.dto.SellerResponse? {
+        val mallIdStr = mallId.toString()
+        val allSellers = sellerService.findAll().map { it.toResponse() }
+
+        // 1. Suche nach hinterlegter Store-URL mit dieser Mall-ID
+        val byUrl = allSellers.firstOrNull { it.storeUrl?.contains(mallIdStr) == true }
+        if (byUrl != null) return byUrl
+
+        // 2. Fallback: Heartforcards für das passende Land finden
+        return allSellers.firstOrNull {
+            it.name.contains("Heartforcards", ignoreCase = true) && it.countryCode == country
+        }
+    }
+
+    private fun detectCountryFromSellerDb(mallId: Long): CountryCode? {
+        val mallIdStr = mallId.toString()
+        val seller = sellerService.findAll().firstOrNull { it.storeUrl?.contains(mallIdStr) == true }
+        return seller?.let {
+            CountryCode.entries.find { c -> c.wireName == it.countryCode }
+        }
+    }
+
+    private fun detectCountryFromUrl(url: String): CountryCode {
+        val lower = url.lowercase()
+        return if (lower.contains("/at-") || lower.contains("/at/") || lower.contains(".at")) {
+            CountryCode.AT
+        } else {
+            CountryCode.DE
+        }
+    }
+
+    private fun detectLanguage(title: String, url: String): LanguageCode {
+        val combined = "$title $url".lowercase()
+        return when {
+            combined.contains("deutsch") ||
+                    combined.contains("german") ||
+                    combined.contains("top-trainer-box") -> LanguageCode.DE
+
+            combined.contains("japanese") ||
+                    combined.contains("japanisch") ||
+                    combined.contains("japan") -> LanguageCode.JP
+
+            else -> LanguageCode.EN
+        }
+    }
+
     private fun cleanPokemonTitle(raw: String, lang: LanguageCode): String {
-        // SEO-Müll wie "Collector's & Playset with Exclusive Contents" entfernen
         val cleaned = raw
             .replace(Regex("(?i)Pokémon\\s*TCG:?\\s*"), "")
             .replace(Regex("(?i)[–-]\\s*Collector.*"), "")

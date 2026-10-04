@@ -23,4 +23,6 @@ data class DealDto(
     val dealTierColor: String?,
     val cardmarketUpdatedAt: Instant?,
     val manualPriceOverride: BigDecimal?,
+    val sellerId: UUID? = null,       // <-- NEU
+    val sellerName: String? = null,   // <-- NEU
 )

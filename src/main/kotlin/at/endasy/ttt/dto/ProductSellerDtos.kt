@@ -19,6 +19,7 @@ data class ProductRequest(
     val isActive: Boolean = true,
     val manualPriceOverride: BigDecimal? = null,
     val temuProductUrl: String? = null,
+    val sellerId: UUID? = null,
 )
 
 data class SellerRequest(
@@ -46,6 +47,7 @@ data class ProductResponse(
     val cardmarketUpdatedAt: OffsetDateTime?,
     val manualPriceOverride: BigDecimal?,
     val temuProductUrl: String?,
+    val sellerId: UUID?,
 )
 
 data class SellerResponse(
@@ -77,6 +79,7 @@ fun ProductsRecord.toResponse() = ProductResponse(
     cardmarketUpdatedAt = cardmarketUpdatedAt,
     manualPriceOverride = manualPriceOverride,
     temuProductUrl = temuProductUrl,
+    sellerId = sellerId,
 )
 
 fun SellersRecord.toResponse() = SellerResponse(

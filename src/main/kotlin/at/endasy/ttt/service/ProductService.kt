@@ -31,6 +31,7 @@ class ProductService(private val dsl: DSLContext) {
         isActive: Boolean,
         manualPriceOverride: BigDecimal? = null,
         temuProductUrl: String? = null,
+        sellerId: UUID? = null,
     ): ProductsRecord =
         dsl.insertInto(PRODUCTS)
             .set(PRODUCTS.NAME, name)
@@ -42,6 +43,7 @@ class ProductService(private val dsl: DSLContext) {
             .set(PRODUCTS.IS_ACTIVE, isActive)
             .set(PRODUCTS.MANUAL_PRICE_OVERRIDE, manualPriceOverride)
             .set(PRODUCTS.TEMU_PRODUCT_URL, temuProductUrl)
+            .set(PRODUCTS.SELLER_ID, sellerId)
             .returning()
             .fetchOne()!!
 
@@ -56,6 +58,7 @@ class ProductService(private val dsl: DSLContext) {
         isActive: Boolean,
         manualPriceOverride: BigDecimal? = null,
         temuProductUrl: String? = null,
+        sellerId: UUID? = null,
     ): ProductsRecord? =
         dsl.update(PRODUCTS)
             .set(PRODUCTS.NAME, name)
@@ -67,6 +70,7 @@ class ProductService(private val dsl: DSLContext) {
             .set(PRODUCTS.IS_ACTIVE, isActive)
             .set(PRODUCTS.MANUAL_PRICE_OVERRIDE, manualPriceOverride)
             .set(PRODUCTS.TEMU_PRODUCT_URL, temuProductUrl)
+            .set(PRODUCTS.SELLER_ID, sellerId)
             .set(PRODUCTS.UPDATED_AT, org.jooq.impl.DSL.currentOffsetDateTime())
             .where(PRODUCTS.ID.eq(id))
             .returning()

@@ -1,5 +1,6 @@
 package at.endasy.ttt.dto
 
+import at.endasy.ttt.model.CountryCode
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 
@@ -11,6 +12,8 @@ data class TemuImportRequest(
     val shortLink: String,
     @JsonProperty("product_url")
     val productUrl: String? = null, // <-- NEU
+    @JsonProperty("country_code")
+    val countryCode: CountryCode? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
