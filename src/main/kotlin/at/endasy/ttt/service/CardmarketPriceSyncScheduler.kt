@@ -16,7 +16,7 @@ class CardmarketPriceSyncScheduler(
 
     private val logger = LoggerFactory.getLogger(CardmarketPriceSyncScheduler::class.java)
 
-    @Scheduled(cron = "0 0 */4 * * *")
+    @Scheduled(cron = "0 0 */12 * * *")
     fun syncPrices() {
         val products = dsl.selectFrom(PRODUCTS)
             .where(PRODUCTS.IS_ACTIVE.isTrue)
