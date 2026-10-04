@@ -28,7 +28,6 @@ class ProductService(private val dsl: DSLContext) {
         temuAffiliateUrl: String,
         cardmarketUrl: String,
         temuPrice: BigDecimal,
-        cardmarketPrice: BigDecimal,
         isActive: Boolean,
         manualPriceOverride: BigDecimal? = null,
     ): ProductsRecord =
@@ -39,7 +38,6 @@ class ProductService(private val dsl: DSLContext) {
             .set(PRODUCTS.TEMU_AFFILIATE_URL, temuAffiliateUrl)
             .set(PRODUCTS.CARDMARKET_URL, cardmarketUrl)
             .set(PRODUCTS.TEMU_PRICE, temuPrice)
-            .set(PRODUCTS.CARDMARKET_PRICE, cardmarketPrice)
             .set(PRODUCTS.IS_ACTIVE, isActive)
             .set(PRODUCTS.MANUAL_PRICE_OVERRIDE, manualPriceOverride)
             .returning()
@@ -53,7 +51,6 @@ class ProductService(private val dsl: DSLContext) {
         temuAffiliateUrl: String,
         cardmarketUrl: String,
         temuPrice: BigDecimal,
-        cardmarketPrice: BigDecimal,
         isActive: Boolean,
         manualPriceOverride: BigDecimal? = null,
     ): ProductsRecord? =
@@ -64,7 +61,6 @@ class ProductService(private val dsl: DSLContext) {
             .set(PRODUCTS.TEMU_AFFILIATE_URL, temuAffiliateUrl)
             .set(PRODUCTS.CARDMARKET_URL, cardmarketUrl)
             .set(PRODUCTS.TEMU_PRICE, temuPrice)
-            .set(PRODUCTS.CARDMARKET_PRICE, cardmarketPrice)
             .set(PRODUCTS.IS_ACTIVE, isActive)
             .set(PRODUCTS.MANUAL_PRICE_OVERRIDE, manualPriceOverride)
             .set(PRODUCTS.UPDATED_AT, org.jooq.impl.DSL.currentOffsetDateTime())

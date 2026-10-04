@@ -10,6 +10,11 @@ server:
         same-site: lax
 
 spring:
+  jackson:
+    visibility:
+      field: any
+      getter: none
+      is-getter: none
   profiles:
     active: local
   application:
@@ -41,10 +46,11 @@ spring:
             token-uri: https://discord.com/api/oauth2/token
             user-info-uri: https://discord.com/api/users/@me
             user-name-attribute: id
-
+ttt:
+  flaresolverr:
+    url: ${FLARESOLVERR_URL:http://localhost:8191/v1}
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
-
 # Default placeholders (overridden by application-local.yml or environment variables)
 discord:
   target-guild-id: ${DISCORD_TARGET_GUILD_ID:your_guild_id_here}

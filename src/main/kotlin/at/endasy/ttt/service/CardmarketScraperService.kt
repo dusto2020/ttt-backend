@@ -1,35 +1,89 @@
 package at.endasy.ttt.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import java.math.BigDecimal
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.time.Duration
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
 @Service
-class CardmarketScraperService {
+class CardmarketScraperService(
+    @Value($$"${ttt.flaresolverr.url:http://localhost:8191/v1}")
+    private val flareSolverrUrl: String,
+) {
+    private val objectMapper = ObjectMapper()
 
     private val logger = LoggerFactory.getLogger(CardmarketScraperService::class.java)
+
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .build()
 
     fun fetchLowestPrice(url: String): BigDecimal? {
         if (url.isBlank()) return null
 
         return try {
-            val document = Jsoup.connect(url)
-                .header("User-Agent", USER_AGENT)
-                .header("Accept-Language", "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7")
-                .header("Referer", "https://www.cardmarket.com/")
-                .timeout(12_000)
-                .get()
+            logger.info("Scraping Cardmarket via FlareSolverr: {}", url)
 
-            // 1. Try "From" / "Ab" in the info list container
-            extractPriceFromInfoList(document, listOf("From", "Ab"))
-            // 2. Fallback: First offer row in the article table
+            val payload = mapOf(
+                "cmd" to "request.get",
+                "url" to url,
+                "maxTimeout" to 60000
+            )
+
+            val request = HttpRequest.newBuilder()
+                .uri(URI.create(flareSolverrUrl))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(65))
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build()
+
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+
+            if (response.statusCode() != 200) {
+                logger.warn("FlareSolverr returned HTTP {}: {}", response.statusCode(), response.body())
+                return null
+            }
+
+            val rootNode = objectMapper.readTree(response.body())
+            val status = rootNode.path("status").asText()
+
+            if (status != "ok") {
+                logger.warn("FlareSolverr request failed: {}", rootNode.path("message").asText())
+                return null
+            }
+
+            val html = rootNode.path("solution").path("response").asText()
+            if (html.isBlank()) {
+                logger.warn("FlareSolverr returned empty HTML for {}", url)
+                return null
+            }
+
+            val document = Jsoup.parse(html)
+
+            // 1. "From" / "Ab" im Info-Block
+            val price = extractPriceFromInfoList(document, listOf("From", "Ab"))
+            // 2. Fallback: Erste Zeile der Artikeltabelle
                 ?: extractPriceFromFirstArticleRow(document)
-                // 3. Fallback: "Price Trend" / "Preistrend" if out of stock
+                // 3. Fallback: Preistrend falls ausverkauft
                 ?: extractPriceFromInfoList(document, listOf("Price Trend", "Preistrend"))
+
+            if (price != null) {
+                logger.info("Successfully scraped price: {} € for {}", price, url)
+            } else {
+                logger.warn("Could not find price in rendered HTML for {}", url)
+            }
+
+            price
         } catch (ex: Exception) {
-            logger.warn("Failed to scrape Cardmarket price from {}: {}", url, ex.message)
+            logger.warn("Failed to scrape Cardmarket price via FlareSolverr from {}: {}", url, ex.message)
             null
         }
     }
@@ -71,8 +125,6 @@ class CardmarketScraperService {
     }
 
     companion object {
-        private const val USER_AGENT =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         private val PRICE_REGEX = Regex("""\d{1,3}(?:\.\d{3})*,\d{2}""")
     }
 }

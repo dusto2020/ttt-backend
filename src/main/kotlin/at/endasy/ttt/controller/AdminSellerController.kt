@@ -2,6 +2,7 @@ package at.endasy.ttt.controller
 
 import at.endasy.ttt.dto.SellerRequest
 import at.endasy.ttt.dto.toResponse
+import at.endasy.ttt.model.CountryCode
 import at.endasy.ttt.security.TttOAuth2User
 import at.endasy.ttt.security.requireAdmin
 import at.endasy.ttt.service.SellerService
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -22,15 +24,23 @@ import org.springframework.web.bind.annotation.RestController
 class AdminSellerController(private val sellerService: SellerService) {
 
     @GetMapping
-    fun list(@AuthenticationPrincipal principal: TttOAuth2User?): ResponseEntity<Any> {
+    fun list(
+        @AuthenticationPrincipal principal: TttOAuth2User?,
+        @RequestParam(required = false) country: CountryCode?,
+    ): ResponseEntity<Any> {
         requireAdmin(principal)?.let { return it }
-        return ResponseEntity.ok(sellerService.findAll().map { it.toResponse() })
+        return ResponseEntity.ok(sellerService.findAll(country).map { it.toResponse() })
     }
 
     @PostMapping
-    fun create(@AuthenticationPrincipal principal: TttOAuth2User?, @RequestBody body: SellerRequest): ResponseEntity<Any> {
+    fun create(
+        @AuthenticationPrincipal principal: TttOAuth2User?,
+        @RequestBody body: SellerRequest,
+    ): ResponseEntity<Any> {
         requireAdmin(principal)?.let { return it }
-        return ResponseEntity.ok(sellerService.create(body.name, body.storeUrl, body.isActive).toResponse())
+        return ResponseEntity.ok(
+            sellerService.create(body.name, body.storeUrl, body.countryCode, body.isActive).toResponse()
+        )
     }
 
     @PutMapping("/{id}")
@@ -40,7 +50,7 @@ class AdminSellerController(private val sellerService: SellerService) {
         @RequestBody body: SellerRequest,
     ): ResponseEntity<Any> {
         requireAdmin(principal)?.let { return it }
-        val updated = sellerService.update(id, body.name, body.storeUrl, body.isActive)
+        val updated = sellerService.update(id, body.name, body.storeUrl, body.countryCode, body.isActive)
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(updated.toResponse())
     }

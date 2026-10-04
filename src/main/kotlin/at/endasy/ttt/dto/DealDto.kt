@@ -14,7 +14,6 @@ data class DealDto(
     val temuAffiliateUrl: String,
     val cardmarketUrl: String,
     val temuPrice: BigDecimal,
-    val cardmarketPrice: BigDecimal,
     val spreadRatio: BigDecimal?,
     val cardmarketLowestPrice: BigDecimal?,
     val cardmarketNetPrice: BigDecimal?,

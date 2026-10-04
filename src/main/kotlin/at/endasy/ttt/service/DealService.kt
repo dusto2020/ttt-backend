@@ -21,15 +21,16 @@ class DealService(
             .orderBy(PRODUCTS.NAME)
             .fetch()
             .map { product ->
-                val spreadRatio = if (product.temuPrice != null && product.temuPrice!!.signum() != 0) {
-                    product.cardmarketPrice!!.divide(product.temuPrice, 4, RoundingMode.HALF_UP)
+                // Nutzt den manuellen Override oder den gecachten Scraper-Preis
+                val effectiveCmPrice = product.manualPriceOverride ?: product.cardmarketLowestPrice
+
+                // Spread-Berechnung mit dem echten Live-Preis
+                val spreadRatio = if (effectiveCmPrice != null && product.temuPrice != null && product.temuPrice!!.signum() != 0) {
+                    effectiveCmPrice.divide(product.temuPrice, 4, RoundingMode.HALF_UP)
                 } else {
                     null
                 }
 
-                val effectiveCmPrice = product.manualPriceOverride
-                    ?: product.cardmarketLowestPrice
-                    ?: product.cardmarketPrice
                 val cardmarketNetPrice = effectiveCmPrice?.let { dealCalculationService.cardmarketNet(it) }
                 val markupPercent = effectiveCmPrice?.let {
                     dealCalculationService.markupPercent(product.temuPrice!!, it)
@@ -44,7 +45,6 @@ class DealService(
                     temuAffiliateUrl = product.temuAffiliateUrl!!,
                     cardmarketUrl = product.cardmarketUrl!!,
                     temuPrice = product.temuPrice!!,
-                    cardmarketPrice = product.cardmarketPrice!!,
                     spreadRatio = spreadRatio,
                     cardmarketLowestPrice = product.cardmarketLowestPrice,
                     cardmarketNetPrice = cardmarketNetPrice,

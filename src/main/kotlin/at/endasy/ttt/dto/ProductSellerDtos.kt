@@ -16,14 +16,14 @@ data class ProductRequest(
     val temuAffiliateUrl: String,
     val cardmarketUrl: String,
     val temuPrice: BigDecimal,
-    val cardmarketPrice: BigDecimal,
     val isActive: Boolean = true,
     val manualPriceOverride: BigDecimal? = null,
 )
 
 data class SellerRequest(
     val name: String,
-    val storeUrl: String? = null,
+    val storeUrl: String?,
+    val countryCode: CountryCode = CountryCode.DE,
     val isActive: Boolean = true,
 )
 
@@ -39,7 +39,6 @@ data class ProductResponse(
     val temuAffiliateUrl: String,
     val cardmarketUrl: String,
     val temuPrice: BigDecimal,
-    val cardmarketPrice: BigDecimal,
     val isActive: Boolean,
     val updatedAt: OffsetDateTime?,
     val cardmarketLowestPrice: BigDecimal?,
@@ -51,6 +50,7 @@ data class SellerResponse(
     val id: UUID,
     val name: String,
     val storeUrl: String?,
+    val countryCode: CountryCode,
     val isActive: Boolean,
 )
 
@@ -69,7 +69,6 @@ fun ProductsRecord.toResponse() = ProductResponse(
     temuAffiliateUrl = temuAffiliateUrl!!,
     cardmarketUrl = cardmarketUrl!!,
     temuPrice = temuPrice!!,
-    cardmarketPrice = cardmarketPrice!!,
     isActive = isActive ?: false,
     updatedAt = updatedAt,
     cardmarketLowestPrice = cardmarketLowestPrice,
@@ -81,6 +80,7 @@ fun SellersRecord.toResponse() = SellerResponse(
     id = id!!,
     name = name!!,
     storeUrl = storeUrl,
+    countryCode = CountryCode.entries.find { it.wireName == countryCode } ?: CountryCode.DE,
     isActive = isActive ?: false,
 )
 
